@@ -13,16 +13,26 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+const CERTIFICATE_FILES = [
+  './public/fonts/**/*',
+  './src/components/certificate/certificate.css',
+  './reference/police_logo.png',
+  './node_modules/@sparticuz/chromium/bin/**/*',
+  './node_modules/react/**/*',
+  './node_modules/react-dom/**/*',
+  './node_modules/scheduler/**/*',
+];
+
 const config: NextConfig = {
   poweredByHeader: false,
   // Native / binary packages stay outside the bundle; the files the certificate route reads at
   // run time (fonts, the serverless Chromium build) are included explicitly.
   serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'sharp'],
   outputFileTracingIncludes: {
-    '/api/entries/[id]/certificate': [
-      './assets/**/*',
-      './node_modules/@sparticuz/chromium/bin/**/*',
-    ],
+    // Rendering a certificate reads fonts and CSS from disk, loads react-dom through Node's resolver and
+    // starts the serverless Chromium build.
+    '/api/entries/[id]/certificate': CERTIFICATE_FILES,
+    '/api/entries/[id]/certificate/image': CERTIFICATE_FILES,
   },
   reactStrictMode: true,
   async headers() {

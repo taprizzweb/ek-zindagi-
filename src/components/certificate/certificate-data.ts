@@ -7,7 +7,8 @@ export interface CertificateView {
   timeText: string; // "04:12 PM"
   place: string;
   certNo: string;
-  violation: ViolationKey;
+  /** null while the officer has not chosen one yet: no box is filled. */
+  violation: ViolationKey | null;
   /** data: URI of the (already compressed) photo, or null for the silhouette. */
   photoSrc: string | null;
   showPolice: boolean;

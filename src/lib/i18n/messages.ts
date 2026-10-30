@@ -57,6 +57,14 @@ export const ERROR_MESSAGES: Record<ErrorCode, Bilingual> = {
     hi: 'इस प्रविष्टि का डेटा हटाया जा चुका है।',
     en: 'The data for this entry has already been deleted.',
   },
+  not_ready: {
+    hi: 'पहले प्रमाणपत्र बनाएँ।',
+    en: 'Generate the certificate first.',
+  },
+  not_implemented: {
+    hi: 'यह तरीका अभी चालू नहीं है।',
+    en: 'This delivery mode is not available yet.',
+  },
   internal: {
     hi: 'कुछ गड़बड़ हो गई। आपका डेटा सुरक्षित है, फिर से कोशिश करें।',
     en: 'Something went wrong on our side. Please try again.',

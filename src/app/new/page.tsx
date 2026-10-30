@@ -3,20 +3,34 @@ import AppShell from '@/components/AppShell';
 import NewEntryForm from '@/components/entry/NewEntryForm';
 import { requirePageUser } from '@/lib/auth/session';
 import { serverEnv } from '@/lib/env';
+import { brandingFromEnv } from '@/lib/pdf/branding';
 
 export default async function NewEntryPage() {
   const user = await requirePageUser({ roles: ['officer', 'supervisor'] });
+  const env = serverEnv();
+  const branding = brandingFromEnv();
   return (
-    <AppShell user={user}>
+    <AppShell user={user} wide>
       <p className="mb-4">
         <Link
           href={user.role === 'supervisor' ? '/supervisor' : '/officer'}
-          className="text-accent underline"
+          className="inline-flex min-h-11 items-center text-accent underline"
         >
           ← वापस / Back
         </Link>
       </p>
-      <NewEntryForm allowGallery={serverEnv().ALLOW_GALLERY_FALLBACK} />
+      <NewEntryForm
+        allowGallery={env.ALLOW_GALLERY_FALLBACK}
+        branding={{
+          showPolice: branding.showPolice,
+          policeLogoSrc: branding.policeLogoDataUri ?? null,
+          ngoLogoSrc: branding.ngoLogoDataUri ?? null,
+          partnerCredit: branding.partnerCreditText ?? null,
+        }}
+        messageLanguage={env.MESSAGE_LANGUAGE}
+        baseUrl={env.APP_BASE_URL}
+        deliveryMode={env.DELIVERY_MODE}
+      />
     </AppShell>
   );
 }

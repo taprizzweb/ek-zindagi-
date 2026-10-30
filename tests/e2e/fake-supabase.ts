@@ -22,6 +22,7 @@ export interface FakeState {
   audit: Row[];
   uploads: { path: string; bytes: Buffer }[];
   pdfs: { path: string; bytes: Buffer }[];
+  links: Row[];
   deleted: string[];
   requests: string[];
 }
@@ -62,6 +63,14 @@ function matches(row: Row, params: URLSearchParams): boolean {
     const value = rest.join('.');
     const actual = row[key];
     if (op === 'eq' && String(actual) !== value) return false;
+    if (
+      op === 'in' &&
+      !value
+        .replace(/^\(|\)$/g, '')
+        .split(',')
+        .includes(String(actual))
+    )
+      return false;
     if (op === 'gte' && !(String(actual) >= value)) return false;
   }
   return true;
@@ -85,6 +94,7 @@ export function freshState(): FakeState {
     audit: [],
     uploads: [],
     pdfs: [],
+    links: [],
     deleted: [],
     requests: [],
   };
@@ -142,6 +152,24 @@ export async function startFakeSupabase(
 
     // ---- PostgREST
     if (path === '/rest/v1/rpc/rate_limit_hit') return send(200, true);
+    if (path === '/rest/v1/rpc/open_certificate_link') {
+      // Mirrors public.open_certificate_link in the migration (tested for real in tests/db).
+      const { p_token_hash } = JSON.parse(body.toString()) as { p_token_hash: string };
+      const l = st.links.find((x) => x.token_hash === p_token_hash);
+      if (!l) return send(200, []);
+      if (new Date(String(l.expires_at)).getTime() <= Date.now())
+        return send(200, [{ status: 'expired', pdf_path: null }]);
+      const e = st.entries.find((x) => x.id === l.entry_id);
+      if (!e || e.purged_at || !e.pdf_path) return send(200, [{ status: 'gone', pdf_path: null }]);
+      l.open_count = Number(l.open_count ?? 0) + 1;
+      e.link_opened_at ??= new Date().toISOString();
+      return send(200, [{ status: 'ok', pdf_path: e.pdf_path }]);
+    }
+    if (path === '/rest/v1/cert_links' && method === 'POST') {
+      const row = JSON.parse(body.toString()) as Row;
+      st.links.push({ ...row, created_at: new Date().toISOString(), open_count: 0 });
+      return send(201);
+    }
     if (path === '/rest/v1/rpc/claim_certificate') {
       // Mirrors public.claim_certificate in the migration (tested for real in tests/db).
       const { p_entry_id } = JSON.parse(body.toString()) as { p_entry_id: string };
@@ -195,7 +223,22 @@ export async function startFakeSupabase(
             message: 'duplicate key value violates unique constraint "entries_officer_request_key"',
           });
         const created_at = new Date().toISOString();
-        st.entries.push({ ...row, created_at });
+        // Like Postgres, every column exists: the ones nobody has set yet are null.
+        st.entries.push({
+          person_name: null,
+          phone_e164: null,
+          other_text: null,
+          photo_path: null,
+          pdf_path: null,
+          error_code: null,
+          wa_message_id: null,
+          sent_at: null,
+          delivery_mode: null,
+          link_opened_at: null,
+          purged_at: null,
+          ...row,
+          created_at,
+        });
         return send(201, { created_at });
       }
       const rows = st.entries.filter((r) => matches(r, url.searchParams));
@@ -229,10 +272,13 @@ export async function startFakeSupabase(
       list.push(file);
       return send(200, { Id: 'x', Key: `${bucket}/${name}` });
     }
-    if (object && method === 'GET' && object[1] === 'photos') {
-      const found = st.uploads.find((u) => u.path === decodeURIComponent(object[2]!));
+    if (object && method === 'GET') {
+      const list = object[1] === 'photos' ? st.uploads : st.pdfs;
+      const found = list.find((u) => u.path === decodeURIComponent(object[2]!));
       if (!found) return send(404, { message: 'not found' });
-      res.writeHead(200, { 'content-type': 'image/jpeg' });
+      res.writeHead(200, {
+        'content-type': object[1] === 'pdfs' ? 'application/pdf' : 'image/jpeg',
+      });
       return res.end(found.bytes);
     }
     if (path === '/storage/v1/object/photos' && method === 'DELETE') {

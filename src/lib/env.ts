@@ -19,6 +19,10 @@ const serverSchema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   RETENTION_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  /** Public https address of this app; certificate links in WhatsApp messages start with it. */
+  APP_BASE_URL: z.url(),
+  DELIVERY_MODE: z.enum(['bridge', 'cloud_api']).default('bridge'),
+  MESSAGE_LANGUAGE: z.enum(['hinglish', 'hindi', 'english']).default('hinglish'),
   GEOCODER: z.enum(['none', 'google']).default('none'),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });

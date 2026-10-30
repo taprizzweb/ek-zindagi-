@@ -34,3 +34,19 @@ Where this update and the master prompt conflict, the update wins. Status: **pla
 6. **"Signed" link.** I use a random 128-bit token whose hash is stored with its expiry, not a stateless signature. It can be revoked and deleted with the file, and it cannot be forged. Same guarantees the update asks for (24 h expiry, 410 afterwards, serves one file only).
 7. **Number confirmation.** Generating a certificate sends nothing, so the "is this number correct?" check moves to the moment just before "Send on WhatsApp", where a wrong number would actually do harm.
 8. **Scope of this round.** Cloud API delivery with webhook, STOP handling and retries, and the retention job, are not part of this round; they remain milestones 5 and 6 and will use the new message builder and the same PDF.
+
+## 4. Outcome
+
+Done in this round: sections A, B, C, D, F, G, and the bridge half of E. Not done, by design (point 8): cloud API mode
+with webhook, STOP handling and retries, and the retention job.
+
+Things that differ from a literal reading of the update prompt, besides points 1 to 8 above:
+
+- **Sizes of the date, place and headline text.** The approved PNG was evidently fitted before Anton had
+  loaded, so its text is smaller than a correct fit gives. The component starts at the sizes that reproduce the
+  PNG exactly (95 px headline, 35 px date and place) and still shrinks longer text. Found by searching font
+  sizes against the reference image (exact match at 95 / 35 / 35).
+- **Tolerance of the PDF-versus-PNG comparison** is 2.5% of 8 px blocks: the PDF raster is about 1 px off the
+  screenshot-based PNG. The PNG export, which is a screenshot, matches within 0.5%.
+- **`react-dom/server` is loaded through Node's resolver** because Next.js refuses that import inside app routes.
+- **Status wording in bridge mode** is "WhatsApp opened (not confirmed)", because the app cannot see a send.

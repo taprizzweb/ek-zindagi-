@@ -11,6 +11,15 @@ export const STATUS_LABELS: Record<string, Bilingual> = {
   failed: { hi: 'विफल', en: 'Failed' },
 };
 
-export function statusLabel(status: string): Bilingual {
+export function statusLabel(
+  status: string,
+  opts: { mode?: string | null; linkOpened?: boolean } = {},
+): Bilingual {
+  // Bridge mode cannot see whether the officer tapped Send, or whether the message arrived.
+  if (opts.mode === 'bridge' && ['sent', 'delivered', 'read'].includes(status)) {
+    return opts.linkOpened
+      ? { hi: 'व्यक्ति ने लिंक खोला', en: 'Link opened by the person' }
+      : { hi: 'व्हाट्सऐप खोला गया (पुष्टि नहीं)', en: 'WhatsApp opened (not confirmed)' };
+  }
   return STATUS_LABELS[status] ?? { hi: status, en: status };
 }

@@ -11,7 +11,7 @@ export default async function RecentEntries() {
   const supabase = await createClient();
   const { data } = await supabase
     .from('entries')
-    .select('id, cert_code, violation, status, created_at')
+    .select('id, cert_code, violation, status, delivery_mode, link_opened_at, created_at')
     .order('created_at', { ascending: false })
     .limit(20);
   const rows = (data ?? []) as {
@@ -19,6 +19,8 @@ export default async function RecentEntries() {
     cert_code: string;
     violation: ViolationKey;
     status: string;
+    delivery_mode: string | null;
+    link_opened_at: string | null;
     created_at: string;
   }[];
 
@@ -30,7 +32,10 @@ export default async function RecentEntries() {
       ) : (
         <ul className="divide-y-2 divide-line border-y-2 border-line">
           {rows.map((r) => {
-            const s = statusLabel(r.status);
+            const s = statusLabel(r.status, {
+              mode: r.delivery_mode,
+              linkOpened: r.link_opened_at !== null,
+            });
             const v = violationByKey(r.violation);
             return (
               <li key={r.id} className="py-3">

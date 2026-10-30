@@ -13,5 +13,8 @@ export const appEnv = {
   INACTIVITY_MINUTES: '30',
   ALLOW_GALLERY_FALLBACK: 'true',
   GEOCODER: 'none',
+  APP_BASE_URL: `http://127.0.0.1:${APP_PORT}`,
+  DELIVERY_MODE: 'bridge',
+  MESSAGE_LANGUAGE: 'hinglish',
   CHROMIUM_EXECUTABLE_PATH: process.env.CHROMIUM_EXECUTABLE_PATH ?? chromium.executablePath(),
 };

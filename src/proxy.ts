@@ -54,6 +54,12 @@ export async function proxy(request: NextRequest) {
   );
 
   const { pathname } = request.nextUrl;
+  // The certificate link in the WhatsApp message is public: the person has no account. The token in
+  // the address is the only credential (see src/app/c/[token]/route.ts), so there is no session to check.
+  if (pathname.startsWith('/c/')) {
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
+  }
   const isApi = pathname.startsWith('/api/');
   const isPublic = PUBLIC_PATHS.has(pathname);
   const { data } = await supabase.auth.getUser();

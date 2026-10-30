@@ -621,3 +621,157 @@ describe('certificate lifecycle (migration 3)', () => {
     );
   });
 });
+
+describe('bridge links (migration 4)', () => {
+  const hash = (c: string) => c.repeat(64).slice(0, 64);
+  const entry = async (id: string, extra = `, pdf_path = '${id}.pdf'`) => {
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, pdf_path)
+       values ($1::uuid, 'EKZ-L-' || substr(md5($1::text), 1, 8), $2, 'helmet', 'manual', 'ready', $1::text || '.pdf')`,
+      [id, OFFICER1],
+    );
+    void extra;
+  };
+  const link = (entryId: string, h: string, createdAgo = '0 seconds', ttl = '24 hours') =>
+    q(
+      `insert into public.cert_links (entry_id, token_hash, created_at, expires_at)
+       values ($1, $2, now() - $3::interval, now() - $3::interval + $4::interval)`,
+      [entryId, h, createdAgo, ttl],
+    );
+  const open = (h: string) =>
+    as(
+      'service_role',
+      null,
+      async () => (await q('select * from public.open_certificate_link($1)', [h])).rows,
+    );
+
+  it('opens a valid link, returns the PDF path and counts the open', async () => {
+    const id = '60000000-0000-4000-8000-000000000001';
+    await entry(id);
+    await link(id, hash('a'));
+    const r = await as('service_role', null, async () => {
+      const rows = (await q(`select * from public.open_certificate_link($1)`, [hash('a')])).rows;
+      await q(`select * from public.open_certificate_link($1)`, [hash('a')]);
+      await q('reset role');
+      return {
+        rows,
+        link: (
+          await q(
+            `select open_count, opened_at is not null as opened from public.cert_links where token_hash = $1`,
+            [hash('a')],
+          )
+        ).rows[0],
+        entry: (
+          await q(`select link_opened_at is not null as opened from public.entries where id = $1`, [
+            id,
+          ])
+        ).rows[0],
+      };
+    });
+    expect(r.rows).toEqual([{ status: 'ok', pdf_path: `${id}.pdf` }]);
+    expect(r.link).toEqual({ open_count: 2, opened: true });
+    expect(r.entry.opened).toBe(true);
+  });
+
+  it('returns nothing for an unknown token', async () => {
+    expect(await open(hash('f'))).toEqual([]);
+  });
+
+  it('says expired once 24 hours have passed (and counts nothing)', async () => {
+    const id = '60000000-0000-4000-8000-000000000002';
+    await entry(id);
+    await link(id, hash('b'), '24 hours 1 second');
+    const r = await as('service_role', null, async () => {
+      const rows = (await q(`select * from public.open_certificate_link($1)`, [hash('b')])).rows;
+      await q('reset role');
+      return {
+        rows,
+        n: (await q(`select open_count from public.cert_links where token_hash = $1`, [hash('b')]))
+          .rows[0].open_count,
+      };
+    });
+    expect(r.rows).toEqual([{ status: 'expired', pdf_path: null }]);
+    expect(r.n).toBe(0);
+  });
+
+  it('is still valid just before 24 hours, expired exactly at the limit', async () => {
+    const a = '60000000-0000-4000-8000-000000000003';
+    const b = '60000000-0000-4000-8000-000000000004';
+    await entry(a);
+    await entry(b);
+    await link(a, hash('c'), '23 hours 59 minutes');
+    await link(b, hash('d'), '24 hours');
+    expect((await open(hash('c')))[0]).toMatchObject({ status: 'ok' });
+    expect((await open(hash('d')))[0]).toMatchObject({ status: 'expired' });
+  });
+
+  it('says gone when the data was already deleted, or there is no PDF', async () => {
+    const a = '60000000-0000-4000-8000-000000000005';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, purged_at) values ($1, 'EKZ-L-purged1', $2, 'helmet', 'manual', now())`,
+      [a, OFFICER1],
+    );
+    await link(a, hash('e'));
+    expect((await open(hash('e')))[0]).toMatchObject({ status: 'gone' });
+    const b = '60000000-0000-4000-8000-000000000006';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source) values ($1, 'EKZ-L-nopdf01', $2, 'helmet', 'manual')`,
+      [b, OFFICER1],
+    );
+    await link(b, hash('9'));
+    expect((await open(hash('9')))[0]).toMatchObject({ status: 'gone' });
+  });
+
+  it('refuses a link that would live longer than 24 hours, or that is already expired on creation', async () => {
+    const id = '60000000-0000-4000-8000-000000000007';
+    await entry(id);
+    await denied(link(id, hash('1'), '0 seconds', '25 hours'), /cert_links_max_24h/);
+    await denied(link(id, hash('2'), '0 seconds', '24 hours 1 second'), /cert_links_max_24h/);
+    await denied(link(id, hash('3'), '0 seconds', '-1 hour'), /cert_links_max_24h/);
+    await link(id, hash('4'), '0 seconds', '24 hours');
+  });
+
+  it('stores a hash only, and it must look like one', async () => {
+    const id = '60000000-0000-4000-8000-000000000008';
+    await entry(id);
+    await denied(link(id, 'plaintext-token-abc'), /token_hash/);
+    await denied(link(id, 'G'.repeat(64)), /token_hash/);
+  });
+
+  it('is deleted together with its entry', async () => {
+    const id = '60000000-0000-4000-8000-000000000009';
+    await entry(id);
+    await link(id, hash('7'));
+    await q(`delete from public.entries where id = $1`, [id]);
+    expect(
+      (await q(`select 1 from public.cert_links where entry_id = $1`, [id])).rows,
+    ).toHaveLength(0);
+  });
+
+  it('browser roles cannot read, write or open links', async () => {
+    for (const [role, uid] of [
+      ['authenticated', OFFICER1],
+      ['authenticated', ADMIN],
+      ['anon', null],
+    ] as [Role, string | null][]) {
+      await as(role, uid, () => denied(q('select * from public.cert_links')));
+      await as(role, uid, () =>
+        denied(
+          q(
+            `insert into public.cert_links (entry_id, token_hash, expires_at) values (gen_random_uuid(), $1, now())`,
+            [hash('8')],
+          ),
+        ),
+      );
+      await as(role, uid, () =>
+        denied(q('select * from public.open_certificate_link($1)', [hash('a')])),
+      );
+    }
+  });
+
+  it('accepts the new audit actions', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('delivery_prepared', '{"mode":"bridge"}'), ('certificate_downloaded', '{"format":"pdf"}')`,
+    );
+  });
+});

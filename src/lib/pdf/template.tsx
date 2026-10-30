@@ -1,11 +1,26 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { createRequire } from 'node:module';
+import type { ReactElement } from 'react';
 import Certificate from '@/components/certificate/Certificate';
 import { formatDateParts, type CertificateView } from '@/components/certificate/certificate-data';
 import { fitAll } from '@/components/certificate/fit';
 import type { ViolationKey } from '@/config/violations';
 import { fontFaceCss } from './fonts';
+
+/**
+ * Next.js refuses `import 'react-dom/server'` inside app routes (their React build has no string
+ * renderer). The certificate page is plain static markup, so Node's own resolver loads the regular
+ * react-dom here, outside the bundler. react-dom is included in the deployed function through
+ * outputFileTracingIncludes in next.config.ts.
+ */
+const nodeRequire = createRequire(join(process.cwd(), 'package.json'));
+function renderToStaticMarkup(element: ReactElement): string {
+  const server = nodeRequire('react-dom/server') as {
+    renderToStaticMarkup(e: ReactElement): string;
+  };
+  return server.renderToStaticMarkup(element);
+}
 
 export interface CertificateData {
   certCode: string;

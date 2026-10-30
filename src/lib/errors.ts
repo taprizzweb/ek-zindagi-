@@ -22,6 +22,8 @@ export type ErrorCode =
   | 'bad_photo'
   | 'pdf_failed'
   | 'busy'
+  | 'not_ready'
+  | 'not_implemented'
   | 'gone'
   | 'gallery_disabled'
   | 'duplicate_recent'
