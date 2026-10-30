@@ -1,0 +1,94 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@page { size: A4; margin: 0; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:210mm;height:297mm;background:#f4ead2;font-family:"Noto Serif","DejaVu Serif",Georgia,serif;color:#2a1d12;position:relative;overflow:hidden}
+.border1{position:absolute;inset:8mm;border:2.5mm double #5a3a1a}
+.border2{position:absolute;inset:14mm;border:0.4mm solid #5a3a1a}
+.content{position:absolute;inset:18mm 20mm;text-align:center}
+.camp{font-size:9pt;letter-spacing:3px;color:#7a4a1a;margin-top:23mm}
+.camp b{color:#9b1c1c}
+h1{font-size:24pt;line-height:1.15;margin-top:4mm;color:#7d0f0f;letter-spacing:1px}
+.sub{font-size:10pt;font-style:italic;margin-top:2mm;color:#5a3a1a}
+.photo-wrap{position:relative;width:82mm;height:92mm;margin:0 auto 0}
+.frame{position:absolute;left:10mm;top:8mm;width:62mm;height:76mm;padding:5mm;
+ background:linear-gradient(135deg,#f3d98a 0%,#c9993f 22%,#8a5a1c 45%,#d9ae55 68%,#9a6a25 100%);
+ box-shadow:0 1.2mm 2.5mm rgba(60,35,10,.45), inset 0 0 0 .5mm #5e3a10, inset 0 0 0 1mm #e8c872, inset 0 0 2mm rgba(0,0,0,.35)}
+.frame::before{content:"";position:absolute;inset:1.6mm;border:2mm solid transparent;
+ background:repeating-linear-gradient(45deg,rgba(94,58,16,.55) 0 .5mm,rgba(255,235,170,.5) .5mm 1mm) border-box;
+ -webkit-mask:linear-gradient(#000 0 0) padding-box exclude,linear-gradient(#000 0 0) border-box;
+ mask:linear-gradient(#000 0 0) padding-box exclude,linear-gradient(#000 0 0) border-box;opacity:.8}
+.frame .inner{position:relative;width:100%;height:100%;background:#cfc6b3;overflow:hidden;
+ box-shadow:0 0 0 .5mm #4a2c0a, inset 0 0 3mm rgba(0,0,0,.45), inset 0 0 0 .4mm #e8c872}
+.frame .inner svg{width:100%;height:100%;display:block}
+.corner{position:absolute;width:6mm;height:6mm;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff1b8,#c9993f 55%,#6b4310);box-shadow:0 .4mm .8mm rgba(0,0,0,.5)}
+.corner.tl{left:-1.4mm;top:-1.4mm}.corner.tr{right:-1.4mm;top:-1.4mm}.corner.bl{left:-1.4mm;bottom:-1.4mm}.corner.br{right:-1.4mm;bottom:-1.4mm}
+
+.garland{position:absolute;inset:0}
+.name{font-size:22pt;margin-top:1mm;font-weight:bold;letter-spacing:2px;text-transform:uppercase}
+.rule{width:60mm;height:0.4mm;background:#5a3a1a;margin:3mm auto}
+table{margin:2mm auto 0;width:140mm;border-collapse:collapse;font-size:11pt;text-align:left}
+td{padding:1.7mm 2mm;border-bottom:0.3mm solid #b8a37c;vertical-align:top}
+td:first-child{width:42mm;color:#7a4a1a;font-size:9pt;letter-spacing:1.5px;text-transform:uppercase}
+td:last-child{font-weight:bold}
+.msg{margin-top:5mm;font-size:12.5pt;font-style:italic;line-height:1.5;color:#3b1a1a}
+.hi{margin-top:2mm;font-size:12pt;color:#7d0f0f;font-weight:bold}
+.disc{margin:4mm auto 0;width:150mm;font-size:8pt;line-height:1.4;color:#5a3a1a;border:0.3mm dashed #7a4a1a;padding:2mm 3mm}
+.footer{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;font-size:8pt;color:#5a3a1a}
+.logo{width:34mm;height:13mm;border:0.3mm dashed #8a7550;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#8a7550;text-align:center}
+.mid{font-size:8.5pt;letter-spacing:1px}
+.wm{position:absolute;left:0;top:138mm;width:210mm;text-align:center;transform:rotate(-30deg);font-size:14pt;font-weight:bold;letter-spacing:4px;color:rgba(125,15,15,0.09);pointer-events:none;white-space:nowrap;line-height:1.8}
+.stamp{position:absolute;right:19mm;top:19mm;transform:rotate(12deg);border:0.8mm solid #9b1c1c;color:#9b1c1c;padding:1.5mm 3mm;font-size:8pt;font-weight:bold;letter-spacing:1px;text-align:center;line-height:1.3;background:rgba(244,234,210,.8)}
+.ref{position:absolute;left:21mm;top:21mm;font-size:8pt;text-align:left;color:#5a3a1a;line-height:1.5}
+</style></head><body>
+<div class="border1"></div><div class="border2"></div>
+<div class="wm">FOR AWARENESS PURPOSE ONLY<br>NOT A LEGAL DOCUMENT</div>
+<div class="stamp">FOR AWARENESS<br>PURPOSE ONLY<br>(HYPOTHETICAL)</div>
+<div class="ref">REF NO.<br><b>EKZ-JPR-000123</b></div>
+<div class="content">
+ <div class="camp">PROJECT <b>EK ZINDAGI</b> &nbsp;•&nbsp; ROAD SAFETY AWARENESS</div>
+ <h1>YOUR NEXT MISTAKE<br>SHOULD NOT BE YOUR LAST</h1>
+ <div class="sub">A hypothetical illustration of what a small mistake on the road can lead to</div>
+
+ <div class="photo-wrap">
+  <div class="frame"><div class="inner"><svg viewBox="0 0 100 128"><rect width="100" height="128" fill="#d8d0bd"/><circle cx="50" cy="48" r="20" fill="#8f8776"/><path d="M12 128 Q14 82 50 80 Q86 82 88 128Z" fill="#8f8776"/><text x="50" y="118" font-size="7" text-anchor="middle" fill="#5d5648" font-family="sans-serif">PERSON'S PHOTO</text></svg></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></div>
+  <svg class="garland" viewBox="0 0 82 92">
+   <defs><g id="f"><circle r="2.3" fill="#f28c00"/><circle r="1.2" fill="#ffc933"/></g></defs>
+   <path id="arc" d="M6 9 Q3 54 14 77 Q41 94 68 77 Q79 54 76 9" fill="none" stroke="#2e6b2e" stroke-width="1" />
+   <g id="flowers"></g>
+   <script>
+   (function(){
+    var p=document.getElementById('arc'),L=p.getTotalLength(),g=document.getElementById('flowers'),n=44;
+    for(var i=0;i<=n;i++){var pt=p.getPointAtLength(L*i/n);
+     var u=document.createElementNS('http://www.w3.org/2000/svg','use');
+     u.setAttribute('href','#f');u.setAttribute('x',pt.x);u.setAttribute('y',pt.y);
+     if(i%3==0){u.setAttribute('transform','translate('+(pt.x*-0.0)+',0)');}
+     g.appendChild(u);}
+   })();
+   </script>
+  </svg>
+ </div>
+
+ <div class="name">SAMPLE NAME</div>
+ <div class="rule"></div>
+
+ <table>
+  <tr><td>Violation</td><td>Riding without a helmet</td></tr>
+  <tr><td>Date &amp; Time</td><td>30 Oct 2026, 03:21 PM</td></tr>
+  <tr><td>Last Seen</td><td>Sample Chauraha, Jaipur, Rajasthan</td></tr>
+  <tr><td>Certificate No.</td><td>EKZ-JPR-000123</td></tr>
+ </table>
+
+ <div class="msg">"A small mistake on the road can have life-changing consequences.<br>Wear your helmet. Someone is waiting for you at home."</div>
+ <div class="hi">एक ज़िंदगी, एक ही मौका — सड़क पर सावधानी रखें।</div>
+
+ <div class="disc"><b>Disclaimer:</b> This is a hypothetical road safety awareness illustration. It is not a death certificate, accident report or any legal or official record. No harm has occurred to the person named above.</div>
+
+ <div class="footer">
+  <div class="logo">NGO LOGO<br>(NGO name)</div>
+  <div class="mid">EK ZINDAGI CAMPAIGN<br>[Police association shown only after written approval]<br>Technology Partner: [Your name]</div>
+  <div class="logo">PARTNER LOGO<br>(after approval)</div>
+ </div>
+</div>
+</body></html>
