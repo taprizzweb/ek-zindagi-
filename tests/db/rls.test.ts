@@ -51,7 +51,7 @@ beforeAll(async () => {
       `insert into public.entries (id, cert_code, officer_id, violation, location_source,
          photo_source, consent_checked, person_name, phone_e164, phone_hash, photo_path, pdf_path,
          other_text, created_at)
-       values ($1,$2,$3,'helmet','gps','camera',true,'Ravi Kumar','+919876543210',$4,'p/1.jpg',
+       values ($1,$2,$3,'helmet','manual','camera',true,'Ravi Kumar','+919876543210',$4,'p/1.jpg',
          'd/1.pdf','secret note', now() - $5::interval)`,
       [id, code, officer, HASH, age],
     );
@@ -174,7 +174,7 @@ describe('entries RLS', () => {
 
   it('a disabled officer sees no entries at all', async () => {
     await q(
-      `insert into public.entries (cert_code, officer_id, violation, location_source) values ('EKZ-T-0009', $1, 'helmet', 'gps')`,
+      `insert into public.entries (cert_code, officer_id, violation, location_source) values ('EKZ-T-0009', $1, 'helmet', 'manual')`,
       [DISABLED],
     );
     const r = await as('authenticated', DISABLED, () => q('select id from public.entries'));
@@ -209,7 +209,7 @@ describe('entries RLS', () => {
       await as('authenticated', uid, () =>
         denied(
           q(
-            `insert into public.entries (cert_code, officer_id, violation, location_source) values ('EKZ-X', $1, 'helmet', 'gps')`,
+            `insert into public.entries (cert_code, officer_id, violation, location_source) values ('EKZ-X', $1, 'helmet', 'manual')`,
             [uid],
           ),
         ),
@@ -237,7 +237,7 @@ describe('entries RLS', () => {
   it('a photo requires the consent flag', async () => {
     await denied(
       q(
-        `insert into public.entries (cert_code, officer_id, violation, location_source, photo_source, consent_checked) values ('EKZ-T-0010', $1, 'helmet', 'gps', 'camera', false)`,
+        `insert into public.entries (cert_code, officer_id, violation, location_source, photo_source, consent_checked) values ('EKZ-T-0010', $1, 'helmet', 'manual', 'camera', false)`,
         [OFFICER1],
       ),
       /entries_photo_needs_consent/,
@@ -247,7 +247,7 @@ describe('entries RLS', () => {
   it('rejects malformed phone numbers and stores coordinates at 3 decimals', async () => {
     await denied(
       q(
-        `insert into public.entries (cert_code, officer_id, violation, location_source, phone_e164) values ('EKZ-T-0011', $1, 'helmet', 'gps', '+911234567890')`,
+        `insert into public.entries (cert_code, officer_id, violation, location_source, phone_e164) values ('EKZ-T-0011', $1, 'helmet', 'manual', '+911234567890')`,
         [OFFICER1],
       ),
       /phone_e164/,
@@ -399,5 +399,73 @@ describe('server-only functions', () => {
 
   it('browser roles cannot touch the rate_limits table', async () => {
     await as('authenticated', ADMIN, () => denied(q(`select * from public.rate_limits`)));
+  });
+});
+
+describe('intake constraints (migration 2)', () => {
+  const base = (cols: string, vals: string, extra: unknown[] = []) =>
+    q(
+      `insert into public.entries (cert_code, officer_id, violation, ${cols}) values ('EKZ-I-' || substr(md5(random()::text), 1, 8), $1, 'helmet', ${vals})`,
+      [OFFICER1, ...extra],
+    );
+
+  it('a GPS entry needs coordinates, a manual entry must not have any', async () => {
+    await denied(base('location_source', `'gps'`), /entries_location_consistent/);
+    await denied(
+      base('location_source, lat, lng', `'manual', 26.9, 75.8`),
+      /entries_location_consistent/,
+    );
+    await base('location_source, lat, lng', `'gps', 26.912, 75.787`);
+    await base('location_source', `'manual'`);
+  });
+
+  it('a gallery photo needs a reason', async () => {
+    await denied(
+      base('location_source, photo_source, consent_checked', `'manual', 'gallery', true`),
+      /entries_gallery_needs_reason/,
+    );
+    await base(
+      'location_source, photo_source, consent_checked, gallery_reason',
+      `'manual', 'gallery', true, 'camera_not_working'`,
+    );
+  });
+
+  it('the same officer cannot reuse a client request id, another officer can', async () => {
+    const id = '20000000-0000-4000-8000-000000000001';
+    const ins = (officer: string) =>
+      q(
+        `insert into public.entries (cert_code, officer_id, violation, location_source, client_request_id) values ('EKZ-R-' || substr(md5(random()::text), 1, 8), $1, 'helmet', 'manual', $2)`,
+        [officer, id],
+      );
+    await ins(OFFICER1);
+    await denied(ins(OFFICER1), /entries_officer_request_key/);
+    await ins(OFFICER2);
+  });
+
+  it('client_request_id is not readable by browser roles', async () => {
+    await as('authenticated', OFFICER1, () =>
+      denied(q('select client_request_id from public.entries')),
+    );
+  });
+
+  it('opt_outs is server-only and stores hashes only', async () => {
+    await as('authenticated', ADMIN, () => denied(q('select * from public.opt_outs')));
+    await as('anon', null, () => denied(q('select * from public.opt_outs')));
+    await as('authenticated', OFFICER1, () =>
+      denied(q(`insert into public.opt_outs (phone_hash) values ('${HASH}')`)),
+    );
+    await as('service_role', null, async () => {
+      await q(`insert into public.opt_outs (phone_hash) values ('${HASH}')`);
+      await denied(
+        q(`insert into public.opt_outs (phone_hash) values ('+919876543210')`),
+        /phone_hash/,
+      );
+    });
+  });
+
+  it('accepts the entry_created audit action', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('entry_created', '{"violation":"helmet"}')`,
+    );
   });
 });

@@ -19,4 +19,8 @@ export type ErrorCode =
   | 'email_taken'
   | 'not_found'
   | 'cross_origin'
+  | 'bad_photo'
+  | 'gallery_disabled'
+  | 'duplicate_recent'
+  | 'opted_out'
   | 'internal';

@@ -29,6 +29,22 @@ export const ERROR_MESSAGES: Record<ErrorCode, Bilingual> = {
     hi: 'पेज को रीफ़्रेश करके फिर से कोशिश करें।',
     en: 'Refresh the page and try again.',
   },
+  bad_photo: {
+    hi: 'यह फ़ोटो इस्तेमाल नहीं हो सकती। दोबारा खींचें या फ़ोटो के बिना आगे बढ़ें।',
+    en: 'This photo cannot be used. Retake it, or continue without a photo.',
+  },
+  gallery_disabled: {
+    hi: 'गैलरी से फ़ोटो अभी बंद है। कैमरे से खींचें या फ़ोटो के बिना आगे बढ़ें।',
+    en: 'Gallery photos are switched off. Use the camera, or continue without a photo.',
+  },
+  duplicate_recent: {
+    hi: 'इस नंबर पर पिछले 24 घंटों में प्रमाणपत्र भेजा जा चुका है। दोबारा नहीं भेजा जाएगा।',
+    en: 'A certificate was already sent to this number in the last 24 hours. It will not be sent again.',
+  },
+  opted_out: {
+    hi: 'इस नंबर के धारक ने संदेश न भेजने को कहा है। प्रमाणपत्र नहीं भेजा जाएगा।',
+    en: 'The holder of this number asked not to receive messages. No certificate will be sent.',
+  },
   internal: {
     hi: 'कुछ गड़बड़ हो गई। आपका डेटा सुरक्षित है, फिर से कोशिश करें।',
     en: 'Something went wrong on our side. Please try again.',

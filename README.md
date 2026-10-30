@@ -44,6 +44,28 @@ columns** of rows its role may see. `person_name`, `phone_e164`, `phone_hash`, `
 goes through server routes that use the service role after checking the caller. Pages that query
 `entries` from the browser role must list columns; `select *` is refused by design.
 
+## What exists after milestone 2
+
+- **Officer form** at `/new` (officers and supervisors), mobile first, light theme, Hindi and English labels:
+  automatic GPS location, name, WhatsApp number (10 digits, starts 6-9), violation list (with a short
+  second list under "Other"), optional live-camera photo with retake, consent box when there is a photo,
+  and a **confirm-the-number** screen in large digits before anything is saved.
+- **Photos:** compressed on the phone (1200 px, JPEG), then re-encoded on the server with all metadata
+  removed (`src/lib/image/process-photo.ts`). Gallery photos need a reason, are only offered when
+  `ALLOW_GALLERY_FALLBACK=true`, and are stored with `photo_source = gallery` for supervisor review.
+- **Location:** a GPS fix gives `location_source = gps` (coordinates stored at 3 decimals). Without GPS the
+  officer types the place and the entry is stored as `manual` with no coordinates. Place names come from
+  Google reverse geocoding when `GEOCODER=google`; otherwise the officer types the place name.
+  The geocoder only ever receives coordinates rounded to 3 decimals.
+- **Safe retries:** every form gets one request id, so sending again after a dropped connection returns the
+  same entry. Rate limits per officer (hour/day) and per IP; the same number cannot receive a second
+  certificate within `DEDUPE_HOURS`; numbers on the opt-out list are refused.
+- Date and time are set by the server. Entries are saved with status `saved`.
+  **Certificates are not generated or sent yet** (milestones 3 to 5).
+- Violation wording lives in `src/config/violations.ts` for the NGO to edit.
+- Officers and supervisors see their own recent entries (status only) on their home screen, read with
+  their own session so Row Level Security does the filtering.
+
 ## Local setup
 
 Requires Node 22+.
@@ -73,6 +95,7 @@ npm run dev
 
 ```bash
 npm test            # unit tests (no services needed)
+npm run test:e2e    # browser tests: builds the app, runs Chromium at phone size (see below)
 npm run lint && npm run typecheck && npm run format:check
 ```
 
@@ -87,7 +110,16 @@ policies as `anon`, `authenticated` (officer, supervisor, admin, disabled office
 TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm run test:db
 ```
 
-## Known limits of the milestone-1 tests
+### Browser tests (end to end)
+
+`npm run test:e2e` builds the app and drives it in Chromium at 360 px with a fake camera and fake GPS:
+login, auto location, filling the form, camera capture and retake, confirm-the-number step, saving,
+denied GPS, gallery fallback, validation, a lost response followed by a retry, duplicate and opted-out
+numbers, and cross-origin refusal. It needs Playwright's Chromium (`npx playwright install chromium`).
+Supabase is replaced by `tests/e2e/fake-supabase.ts`, a test-only in-memory stand-in. Set
+`E2E_SKIP_BUILD=1` to reuse an existing build.
+
+## Known limits of the tests
 
 - The tests do not run a real Supabase stack (GoTrue, PostgREST, Storage). RLS is tested against
   plain Postgres with stand-ins for `auth.uid()` and the storage tables; officer-management rules
@@ -95,4 +127,7 @@ TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm run t
   change) and the login/logout/change-password routes are therefore only type-checked and
   smoke-tested against a stub, not exercised end to end. First real run: follow the Supabase steps
   above and walk through login, forced password change, create officer, disable officer.
+- The browser tests use the fake Supabase above, so they prove the form, the server rules and what gets
+  stored, not the real Supabase Auth, PostgREST or Storage. Real GPS accuracy, real phone cameras and
+  real mobile networks need the manual device test in milestone 7.
 - CI is configured (`.github/workflows/ci.yml`) but has not run yet.
