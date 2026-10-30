@@ -101,10 +101,11 @@ export async function generateCertificate(
         actorId: actor.id,
         actorCode: actor.officerCode,
         entryId,
-        meta: { stage },
+        // The technical reason only (a browser start-up or timeout message), never the entry data.
+        meta: { stage, reason: err instanceof Error ? err.message.slice(0, 190) : null },
       })
       .catch(() => undefined);
-    void err; // the cause is not shown to the officer, and may hold personal data
+    // the cause is not shown to the officer
     throw new AppError('pdf_failed', 502);
   }
 }

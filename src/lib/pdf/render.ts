@@ -60,8 +60,9 @@ async function withPage<T>(html: string, run: (page: Page) => Promise<T>): Promi
     return await run(page);
   } catch (err) {
     // Only the technical reason is logged (no entry data), so a deploy problem is visible in the host logs.
-    console.error('pdf render failed:', err instanceof Error ? err.message : String(err));
-    throw new AppError('pdf_failed', 502);
+    const reason = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+    console.error('pdf render failed:', reason);
+    throw new AppError('pdf_failed', 502, reason);
   } finally {
     await browser?.close().catch(() => undefined);
     release();
