@@ -1,11 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { formatDateParts } from '@/components/certificate/certificate-data';
+import { fitAll } from '@/components/certificate/fit';
+import { CERTIFICATE_CHECKLIST, CERTIFICATE_TEXT } from '@/config/certificate';
 import { VIOLATION_KEYS } from '@/config/violations';
-import { garlandPoints, garlandSvg } from '@/lib/pdf/garland';
+import { FONT_FACES, fontFaceCssForBrowser } from '@/lib/pdf/fonts';
 import {
   buildCertificateHtml,
-  escapeHtml,
-  formatCertificateDateTime,
-  nameFontPt,
+  fitScript,
   type Branding,
   type CertificateData,
 } from '@/lib/pdf/template';
@@ -14,49 +16,56 @@ const base: CertificateData = {
   certCode: 'EKZ-JPR-4ZK7MQ9',
   name: 'Ravi Kumar',
   violation: 'helmet',
-  areaName: 'C-Scheme, Jaipur, Rajasthan',
-  createdAt: new Date('2026-10-30T09:51:00Z'),
+  areaName: 'C-Scheme, Jaipur',
+  createdAt: new Date('2026-10-30T10:42:00Z'), // 04:12 PM IST
 };
 
-const MUST_HAVE = [
-  'Disclaimer:',
-  'It is not a death certificate, accident report or any legal or official record.',
-  'No harm has occurred to the person named above.',
-  'class="stamp"',
-  'FOR AWARENESS<br>PURPOSE ONLY<br>(HYPOTHETICAL)',
-  'class="wm"',
-  'FOR AWARENESS PURPOSE ONLY<br>NOT A LEGAL DOCUMENT',
+const POLICE: Branding = {
+  showPolice: true,
+  policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
+};
+const brandings: Branding[] = [
+  { showPolice: false },
+  POLICE,
+  {
+    showPolice: true,
+    ngoLogoDataUri: 'data:image/png;base64,NGOLOGO',
+    policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
+    partnerCreditText: 'Some Partner',
+  },
+  { showPolice: false, ngoLogoDataUri: null, partnerCreditText: null },
 ];
 
-function brandings(): Branding[] {
-  return [
-    { showPolice: false },
-    { showPolice: true },
-    {
-      showPolice: true,
-      ngoLogoDataUri: 'data:image/png;base64,AAAA',
-      policeLogoDataUri: 'data:image/png;base64,BBBB',
-      partnerCreditText: 'Some Partner',
-    },
-    { showPolice: false, ngoLogoDataUri: null, partnerCreditText: null },
-  ];
+/** Visible text of the page, without styles, script or data URIs. */
+function visibleText(html: string): string {
+  return html
+    .replace(/<style>[\s\S]*?<\/style>/g, ' ')
+    .replace(/<script>[\s\S]*?<\/script>/g, ' ')
+    .replace(/<title>[\s\S]*?<\/title>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ');
 }
 
-describe('hard rules: disclaimer, stamp and watermark are always in the template', () => {
+/** The certificate markup only: no CSS (which names classes such as c-logo-police) and no script. */
+function markup(html: string): string {
+  return html.slice(html.indexOf('<body>')).replace(/<script>[\s\S]*?<\/script>/g, '');
+}
+
+const MUST_HAVE = [
+  'class="stamp"',
+  'FOR AWARENESS<br/>PURPOSE ONLY',
+  'class="wm"',
+  'FOR AWARENESS PURPOSE ONLY<br/>NOT A LEGAL DOCUMENT',
+  `class="disc">${CERTIFICATE_TEXT.disclaimer}</div>`,
+];
+
+describe('hard rules: stamp, watermark and disclaimer are always in the certificate', () => {
   it('for every violation, with and without a photo, with every branding combination', () => {
     for (const violation of VIOLATION_KEYS) {
       for (const photoJpeg of [null, Buffer.from('jpeg')]) {
-        for (const branding of brandings()) {
-          const html = buildCertificateHtml(
-            {
-              ...base,
-              violation,
-              otherText: violation === 'other' ? 'Triple riding' : null,
-              photoJpeg,
-            },
-            branding,
-          );
-          for (const needle of MUST_HAVE) expect(html, `${violation} ${needle}`).toContain(needle);
+        for (const branding of brandings) {
+          const html = buildCertificateHtml({ ...base, violation, photoJpeg }, branding);
+          for (const needle of MUST_HAVE) expect(html, `${violation}: ${needle}`).toContain(needle);
         }
       }
     }
@@ -65,110 +74,139 @@ describe('hard rules: disclaimer, stamp and watermark are always in the template
   it('for hostile and awkward input', () => {
     const awkward = [
       '<script>alert(1)</script>',
-      '</div><div class="disc" style="display:none">',
+      '</div><div class="disc">fake</div>',
       '"><img src=x onerror=alert(1)>',
-      '&amp; &lt; &#39;',
+      '&amp; &lt;',
       'रवि कुमार',
       'x'.repeat(500),
-      '‮RTL override',
+      '‮RTL',
       '',
     ];
     for (const s of awkward) {
-      const html = buildCertificateHtml({
-        ...base,
-        name: s,
-        areaName: s,
-        otherText: s,
-        violation: 'other',
-        certCode: s,
-      });
+      const html = buildCertificateHtml({ ...base, name: s, areaName: s, certCode: s });
       for (const needle of MUST_HAVE) expect(html).toContain(needle);
-      expect(html).not.toContain('<script');
-      expect(html).not.toContain('<img src=x');
       expect(html.match(/class="disc"/g)).toHaveLength(1); // no injected look-alike element
-      expect(html).not.toContain('<div class="disc" style');
+      expect(html.match(/<script/g)).toHaveLength(1); // only our own fit script
+      expect(html).not.toContain('<img src=x');
     }
   });
 
-  it('contains no script at all and no external resources', () => {
-    const html = buildCertificateHtml(base, {
-      showPolice: true,
-      ngoLogoDataUri: 'data:image/png;base64,AAAA',
-      partnerCreditText: 'P',
-    });
-    expect(html).not.toMatch(/<script/i);
-    expect(html).not.toMatch(/(src|href)\s*=\s*["']https?:/i);
-    expect(html).not.toMatch(/url\(\s*["']?https?:/i);
-    expect(html).not.toMatch(/@import/i);
-  });
-});
-
-describe('wording rules', () => {
-  it('never uses wording that makes the certificate look like a real record', () => {
-    const html = buildCertificateHtml(base)
-      .replace(/<style>[\s\S]*?<\/style>/, '')
-      .replace(/data:[^"')]+/g, '');
-    const text = html.replace(/<[^>]+>/g, ' ');
-    // The disclaimer itself says "not a death certificate"; everything else must avoid these words.
-    const withoutDisclaimer = text.replace(/Disclaimer:[\s\S]*?named above\./, '');
-    expect(withoutDisclaimer).not.toMatch(/\b(late|rip|deceased|death|died|demise|obituary)\b/i);
-    expect(html).not.toMatch(/government of|satyameva|emblem|हिंदी|भारत सरकार/i);
-  });
-});
-
-describe('content', () => {
-  it('shows name, violation, place, code, date and the violation line', () => {
+  it('the stamp reads "FOR AWARENESS PURPOSE ONLY" and the word HYPOTHETICAL appears nowhere as a stamp', () => {
     const html = buildCertificateHtml(base);
-    expect(html).toContain('Ravi Kumar');
-    expect(html).toContain('Riding without a helmet');
-    expect(html).toContain('C-Scheme, Jaipur, Rajasthan');
-    expect(html).toContain('30 Oct 2026, 03:21 PM');
-    expect(html).toContain('Wear your helmet. Someone is waiting for you at home.');
-    expect(html).toContain('एक ज़िंदगी, एक ही मौका — सड़क पर सावधानी रखें।');
-    expect(html.match(/EKZ-JPR-4ZK7MQ9/g)!.length).toBeGreaterThanOrEqual(3); // title, reference, certificate no.
-  });
-  it('shows the specific text for an "other" violation', () => {
-    const html = buildCertificateHtml({ ...base, violation: 'other', otherText: 'Triple riding' });
-    expect(html).toContain('Other traffic violation: Triple riding');
-    expect(html).toContain('Follow the rules. Someone is waiting for you at home.');
-  });
-  it('uses a silhouette without a photo and the photo when there is one', () => {
-    expect(buildCertificateHtml(base)).toContain('<circle cx="50" cy="48"');
-    const withPhoto = buildCertificateHtml({ ...base, photoJpeg: Buffer.from('abc') });
-    expect(withPhoto).toContain(`data:image/jpeg;base64,${Buffer.from('abc').toString('base64')}`);
-    expect(withPhoto).not.toContain('<circle cx="50" cy="48"');
-  });
-  it('escapes everything it prints', () => {
-    const html = buildCertificateHtml({ ...base, name: 'A <b>&"\'' });
-    expect(html).toContain('A &lt;b&gt;&amp;&quot;&#39;');
-    expect(html).not.toContain('<b>&');
+    const stamp = /<div class="stamp">([\s\S]*?)<\/div>/.exec(html)![1]!;
+    expect(stamp).toBe('FOR AWARENESS<br/>PURPOSE ONLY');
+    expect(stamp).not.toMatch(/hypothetical/i);
+    // The disclaimer itself says "Hypothetical road safety awareness illustration" (as the design requires).
+    expect(visibleText(html).match(/hypothetical/gi)).toHaveLength(1);
   });
 });
 
-describe('branding gating', () => {
-  it('shows no police name or logo, no NGO logo and no partner credit by default', () => {
+describe('the checklist', () => {
+  it('has the seven violations once each, in the approved two columns', () => {
+    expect(CERTIFICATE_CHECKLIST.map((c) => c.key).sort()).toEqual([...VIOLATION_KEYS].sort());
+    expect(CERTIFICATE_CHECKLIST.filter((c) => c.column === 1).map((c) => c.label)).toEqual([
+      'Rider without helmet',
+      'Child without helmet on scooter',
+      'Overspeeding',
+      'Other traffic violation',
+    ]);
+    expect(CERTIFICATE_CHECKLIST.filter((c) => c.column === 2).map((c) => c.label)).toEqual([
+      'Driver without seatbelt',
+      'Driving on the wrong side',
+      'Mobile phone while driving',
+    ]);
+  });
+
+  it.each(VIOLATION_KEYS)('fills only the box of the chosen violation (%s)', (violation) => {
+    const html = buildCertificateHtml({ ...base, violation });
+    const boxes = [
+      ...html.matchAll(
+        /<div class="opt( sel)?" data-checked="(true|false)"><i><\/i><span>([^<]+)<\/span>/g,
+      ),
+    ];
+    expect(boxes).toHaveLength(7);
+    const checked = boxes.filter((m) => m[2] === 'true');
+    expect(checked).toHaveLength(1);
+    expect(checked[0]![3]).toBe(CERTIFICATE_CHECKLIST.find((c) => c.key === violation)!.label);
+    expect(boxes.filter((m) => m[1] === ' sel')).toHaveLength(1);
+  });
+});
+
+describe('wording', () => {
+  it('never says challan, fine, penalty, deceased, RIP or late, for any violation or branding', () => {
+    for (const violation of VIOLATION_KEYS) {
+      for (const branding of brandings) {
+        const text = visibleText(buildCertificateHtml({ ...base, violation }, branding));
+        expect(text, violation).not.toMatch(
+          /\b(challan|e-challan|fine|fines|penalty|penalties|deceased|rip|late)\b/i,
+        );
+        expect(text).not.toMatch(/government of|satyameva|भारत सरकार|मृत|श्रद्धांजलि/i);
+      }
+    }
+  });
+
+  it('says what the design says', () => {
+    const text = visibleText(buildCertificateHtml(base));
+    for (const s of [
+      'MIGHT DIE SOON',
+      'This certifies that',
+      'Ravi Kumar',
+      'was last seen alive on',
+      'while committing this traffic offence:',
+      'The next frame will not be a joke.',
+      'Issued at Jaipur',
+      'Certificate No. EKZ-JPR-4ZK7MQ9',
+      CERTIFICATE_TEXT.disclaimer,
+    ]) {
+      expect(text, s).toContain(s);
+    }
+  });
+
+  it('prints date and time together, in Indian Standard Time', () => {
     const html = buildCertificateHtml(base);
-    expect(html).not.toMatch(/police/i);
-    expect(html).not.toContain('Technology Partner');
-    expect(html).toContain('EK ZINDAGI CAMPAIGN');
+    expect(html).toContain('30 October 2026<br/>04:12 PM');
   });
-  it('ignores a police logo when police branding is off', () => {
-    const html = buildCertificateHtml(base, {
-      showPolice: false,
-      policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
-    });
-    expect(html).not.toContain('POLICELOGO');
-    expect(html).not.toMatch(/police/i);
+
+  it('does not print the old per-violation lines or the Hindi slogan', () => {
+    const text = visibleText(buildCertificateHtml(base));
+    expect(text).not.toContain('Someone is waiting for you at home');
+    expect(text).not.toContain('एक ज़िंदगी');
+    expect(text).not.toContain('YOUR NEXT MISTAKE');
   });
-  it('shows the police line and logo only when switched on', () => {
-    const html = buildCertificateHtml(base, {
-      showPolice: true,
-      policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
-    });
-    expect(html).toContain('In association with Rajasthan Police');
-    expect(html).toContain('POLICELOGO');
+});
+
+describe('police branding', () => {
+  it('off: no police wording, no logo, neutral signature line', () => {
+    for (const html of [
+      buildCertificateHtml(base),
+      buildCertificateHtml(base, {
+        showPolice: false,
+        policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
+      }),
+    ]) {
+      expect(markup(html)).not.toMatch(/police/i);
+      expect(html).not.toContain('POLICELOGO');
+      expect(html).not.toContain('Traffic Inspector');
+      expect(html).toContain('Certificate of recklessness on road · Project EK ZINDAGI · Jaipur');
+      expect(html).toContain('Project EK ZINDAGI · Awareness camp');
+    }
   });
-  it('shows the NGO logo and partner credit when configured', () => {
+
+  it('on: subtitle, signature line and logo', () => {
+    const html = buildCertificateHtml(base, POLICE);
+    expect(html).toContain('Certificate of recklessness on road · Issued by Jaipur Traffic Police');
+    expect(html).toContain('Traffic Inspector, Jaipur Traffic Police');
+    expect(html).toContain('class="c-logo c-logo-police" src="data:image/png;base64,POLICELOGO"');
+  });
+
+  it('on but no logo file: wording only, no broken image', () => {
+    const html = buildCertificateHtml(base, { showPolice: true });
+    expect(markup(html)).not.toContain('c-logo-police');
+    expect(html).toContain('Issued by Jaipur Traffic Police');
+  });
+
+  it('NGO logo and partner credit show only when configured, partner text is escaped', () => {
+    expect(markup(buildCertificateHtml(base))).not.toMatch(/c-logo-ngo|Technology Partner/);
     const html = buildCertificateHtml(base, {
       showPolice: false,
       ngoLogoDataUri: 'data:image/png;base64,NGOLOGO',
@@ -179,49 +217,80 @@ describe('branding gating', () => {
   });
 });
 
-describe('formatCertificateDateTime', () => {
+describe('the page that is printed', () => {
+  it('has exactly one script, identical for every certificate, with no data in it', () => {
+    const a = buildCertificateHtml(base);
+    const b = buildCertificateHtml({
+      ...base,
+      name: 'Someone Else',
+      areaName: 'Elsewhere',
+      certCode: 'EKZ-JPR-AAAAAAA',
+      violation: 'mobile',
+    });
+    const script = (h: string) => /<script>([\s\S]*?)<\/script>/.exec(h)![1];
+    expect(a.match(/<script/g)).toHaveLength(1);
+    expect(script(a)).toBe(script(b));
+    expect(script(a)).toBe(fitScript());
+    for (const s of ['Ravi', 'C-Scheme', 'EKZ-JPR']) expect(script(a)).not.toContain(s);
+  });
+
+  it('loads nothing from outside: no http(s) resource, no import, no external font', () => {
+    const html = buildCertificateHtml(base, {
+      showPolice: true,
+      ngoLogoDataUri: 'data:image/png;base64,AAAA',
+      policeLogoDataUri: 'data:image/png;base64,BBBB',
+      partnerCreditText: 'P',
+    });
+    expect(html).not.toMatch(/(src|href)\s*=\s*["']https?:/i);
+    expect(html).not.toMatch(/url\(\s*["']?https?:/i);
+    expect(html).not.toMatch(/@import/i);
+    expect(html).toContain('data:font/woff2;base64,');
+  });
+
+  it('uses no inline style attributes (the web app forbids them in its CSP)', () => {
+    const html = buildCertificateHtml(base, POLICE);
+    const body = html.slice(html.indexOf('<body>'));
+    expect(body.replace(/<script>[\s\S]*?<\/script>/, '')).not.toMatch(/\sstyle=/);
+  });
+
+  it('is landscape, 1123 x 794 px', () => {
+    const html = buildCertificateHtml(base);
+    expect(html).toContain('@page{size:1123px 794px;margin:0}');
+  });
+});
+
+describe('the shared fit function', () => {
+  it('is self-contained, so it can be inlined into the printed page', () => {
+    const source = fitAll.toString();
+    expect(source).toMatch(/^function fitAll\(/);
+    expect(source).not.toMatch(/\b(import|require|__name)\b/);
+    expect(() => new Function(`return (${source})`)).not.toThrow();
+  });
+});
+
+describe('date format', () => {
   it.each([
-    ['2026-10-30T09:51:00Z', '30 Oct 2026, 03:21 PM'],
-    ['2026-10-30T18:30:00Z', '31 Oct 2026, 12:00 AM'], // IST midnight is the next day
-    ['2026-10-30T06:30:00Z', '30 Oct 2026, 12:00 PM'],
-    ['2026-09-05T00:05:00Z', '05 Sep 2026, 05:35 AM'],
-    ['2026-12-31T20:00:00Z', '01 Jan 2027, 01:30 AM'],
-  ])('%s -> %s', (iso, expected) => {
-    expect(formatCertificateDateTime(new Date(iso))).toBe(expected);
+    ['2026-10-30T10:42:00Z', '30 October 2026', '04:12 PM'],
+    ['2026-10-30T18:30:00Z', '31 October 2026', '12:00 AM'], // IST midnight is already the next day
+    ['2026-10-30T06:30:00Z', '30 October 2026', '12:00 PM'],
+    ['2026-09-05T00:05:00Z', '05 September 2026', '05:35 AM'],
+    ['2026-12-31T20:00:00Z', '01 January 2027', '01:30 AM'],
+  ])('%s -> %s, %s', (iso, dateText, timeText) => {
+    expect(formatDateParts(new Date(iso))).toEqual({ dateText, timeText });
   });
 });
 
-describe('layout helpers', () => {
-  it('shrinks long names, never grows past the reference size', () => {
-    expect(nameFontPt('Ravi Kumar')).toBe(22);
-    expect(nameFontPt('x'.repeat(24))).toBe(18);
-    expect(nameFontPt('x'.repeat(30))).toBe(15);
-    expect(nameFontPt('x'.repeat(40))).toBe(13);
+describe('fonts', () => {
+  it('the browser stylesheet is generated from the same list as the PDF fonts', () => {
+    const css = readFileSync('src/components/certificate/certificate-fonts.css', 'utf8');
+    expect(css).toContain(fontFaceCssForBrowser());
   });
-  it('counts characters, not UTF-16 units, for Devanagari names', () => {
-    expect(nameFontPt('अ'.repeat(18))).toBe(22);
+  it('every font file exists', () => {
+    for (const f of FONT_FACES) expect(() => readFileSync(`public/fonts/${f.file}`)).not.toThrow();
   });
-  it('escapeHtml handles all five characters', () => {
-    expect(escapeHtml(`&<>"'`)).toBe('&amp;&lt;&gt;&quot;&#39;');
-  });
-});
-
-describe('garland', () => {
-  it('has 45 flowers, all inside the frame area, evenly spaced along the curve', () => {
-    const pts = garlandPoints();
-    expect(pts).toHaveLength(45);
-    for (const [x, y] of pts) {
-      expect(x).toBeGreaterThan(0);
-      expect(x).toBeLessThan(82);
-      expect(y).toBeGreaterThan(0);
-      expect(y).toBeLessThan(92);
-    }
-    const gaps = pts.slice(1).map(([x, y], i) => Math.hypot(x - pts[i]![0], y - pts[i]![1]));
-    expect(Math.max(...gaps) / Math.min(...gaps)).toBeLessThan(1.15);
-  });
-  it('is plain SVG without script', () => {
-    const svg = garlandSvg();
-    expect(svg.match(/<circle/g)).toHaveLength(90);
-    expect(svg).not.toMatch(/<script/i);
+  it('covers the families the design uses', () => {
+    expect(new Set(FONT_FACES.map((f) => f.family))).toEqual(
+      new Set(['Anton', 'Libre Baskerville', 'EKZ Deva', 'EKZ Deva Bold']),
+    );
   });
 });

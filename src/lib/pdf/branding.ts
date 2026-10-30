@@ -9,8 +9,17 @@ const MIME: Record<string, string> = {
   '.jpeg': 'image/jpeg',
 };
 const MAX_LOGO_BYTES = 300_000;
+/** Used for the police logo when branding is on and POLICE_LOGO_PATH is not set. */
+export const DEFAULT_POLICE_LOGO_PATH = 'reference/police_logo.png';
 
-function loadLogo(path: string | undefined): string | null {
+/** File access, injectable so tests can prove which files are (not) opened. */
+export interface FileAccess {
+  size(path: string): number;
+  read(path: string): Buffer;
+}
+const realFiles: FileAccess = { size: (p) => statSync(p).size, read: (p) => readFileSync(p) };
+
+function loadLogo(path: string | undefined, files: FileAccess): string | null {
   if (!path) return null;
   const abs = resolve(process.cwd(), path);
   const root = resolve(process.cwd()) + sep;
@@ -18,8 +27,8 @@ function loadLogo(path: string | undefined): string | null {
   // Logos live inside the project; a path elsewhere on the server is never read.
   if (!abs.startsWith(root) || !mime) return null;
   try {
-    if (statSync(abs).size > MAX_LOGO_BYTES) return null;
-    return `data:${mime};base64,${readFileSync(abs).toString('base64')}`;
+    if (files.size(abs) > MAX_LOGO_BYTES) return null;
+    return `data:${mime};base64,${files.read(abs).toString('base64')}`;
   } catch {
     return null;
   }
@@ -33,17 +42,22 @@ export interface BrandingEnv {
 }
 
 /**
- * Police name and logo appear only when SHOW_POLICE_BRANDING is exactly "true" (it stays off
- * until written permission exists). The NGO logo and the technology partner credit appear only
- * when configured.
+ * Police name and logo appear only when SHOW_POLICE_BRANDING is exactly "true" (it stays off until
+ * written permission covers the logo, which shows the State Emblem). With the flag off, the police
+ * logo file is never opened. The NGO logo and the technology-partner credit appear only when configured.
  */
-export function brandingFromEnv(env: BrandingEnv = process.env as BrandingEnv): Branding {
+export function brandingFromEnv(
+  env: BrandingEnv = process.env as BrandingEnv,
+  files: FileAccess = realFiles,
+): Branding {
   const showPolice = env.SHOW_POLICE_BRANDING === 'true';
   const credit = env.PARTNER_CREDIT_TEXT?.trim();
   return {
     showPolice,
-    ngoLogoDataUri: loadLogo(env.NGO_LOGO_PATH),
-    policeLogoDataUri: showPolice ? loadLogo(env.POLICE_LOGO_PATH) : null,
+    ngoLogoDataUri: loadLogo(env.NGO_LOGO_PATH, files),
+    policeLogoDataUri: showPolice
+      ? loadLogo(env.POLICE_LOGO_PATH || DEFAULT_POLICE_LOGO_PATH, files)
+      : null,
     partnerCreditText: credit && credit.length <= 80 && isPrintablePlace(credit) ? credit : null,
   };
 }

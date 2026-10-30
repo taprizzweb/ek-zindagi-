@@ -2,3 +2,4 @@
 node_modules
 reference
 package-lock.json
+src/components/certificate/certificate-fonts.css

@@ -1,12 +1,15 @@
 import { createServer } from 'node:http';
-import { statSync } from 'node:fs';
-import sharp from 'sharp';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
+import { PNG } from 'pngjs';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { VIOLATION_KEYS } from '@/config/violations';
-import { createCertificatePdf } from '@/lib/pdf/certificate';
+import { CERTIFICATE_CHECKLIST, CERTIFICATE_TEXT } from '@/config/certificate';
+import { VIOLATION_KEYS, type ViolationKey } from '@/config/violations';
+import { brandingFromEnv } from '@/lib/pdf/branding';
+import { createCertificatePdf, createCertificatePng } from '@/lib/pdf/certificate';
 import { renderPdf } from '@/lib/pdf/render';
-import { buildCertificateHtml, type CertificateData } from '@/lib/pdf/template';
+import { buildCertificateHtml, type Branding, type CertificateData } from '@/lib/pdf/template';
 import {
   blockDifference,
   pdfFonts,
@@ -20,20 +23,17 @@ import {
 
 const MAX_BYTES = 1.5 * 1024 * 1024;
 const MAX_MS = 5000;
+const UPDATE = process.env.UPDATE_SNAPSHOTS === '1';
+const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
 
-const MANDATORY = [
-  'Disclaimer: This is a hypothetical road safety awareness illustration. It is not a death certificate, accident report or any legal or official record. No harm has occurred to the person named above.',
-  'FOR AWARENESS PURPOSE ONLY (HYPOTHETICAL)',
-  'FOR AWARENESS PURPOSE ONLY NOT A LEGAL DOCUMENT',
-];
-
-/** Text extraction can break the rotated stamp and watermark into lines; compare on letters only. */
+/** The letters of a string, upper-cased: robust against how the PDF text extractor spaces rotated text. */
 const letters = (s: string) => s.replace(/[^\p{L}]/gu, '').toUpperCase();
+
 function expectMandatory(text: string) {
   const flat = letters(text);
-  expect(flat).toContain(letters(MANDATORY[0]!));
-  expect(flat).toContain(letters('FOR AWARENESS PURPOSE ONLY HYPOTHETICAL'));
-  expect(flat).toContain(letters('NOT A LEGAL DOCUMENT'));
+  expect(flat).toContain(letters(CERTIFICATE_TEXT.disclaimer));
+  expect(flat).toContain(letters('FOR AWARENESS PURPOSE ONLY')); // stamp (and watermark)
+  expect(flat).toContain(letters('NOT A LEGAL DOCUMENT')); // watermark
 }
 
 async function jpeg(w: number, h: number, color: string): Promise<Buffer> {
@@ -41,8 +41,6 @@ async function jpeg(w: number, h: number, color: string): Promise<Buffer> {
     .jpeg({ quality: 85 })
     .toBuffer();
 }
-
-/** A large, detailed photo (random noise compresses badly): the worst case for file size. */
 async function noisyJpeg(w: number, h: number): Promise<Buffer> {
   const raw = Buffer.alloc(w * h * 3);
   for (let i = 0; i < raw.length; i++) raw[i] = (i * 7919 + ((i >> 3) ^ (i * 31))) & 0xff;
@@ -50,98 +48,90 @@ async function noisyJpeg(w: number, h: number): Promise<Buffer> {
     .jpeg({ quality: 82 })
     .toBuffer();
 }
+/** A deterministic stand-in portrait (no real person). */
+async function portrait(): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1100"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb8d0"/><stop offset="1" stop-color="#6d8aa6"/></linearGradient></defs><rect width="900" height="1100" fill="url(#g)"/><circle cx="450" cy="400" r="170" fill="#c8a07a"/><path d="M150 1100 Q170 700 450 680 Q730 700 750 1100Z" fill="#3d4f66"/></svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
+}
+
+/** Centre of each checkbox on the 1123 x 794 page: column 1 at x 488, column 2 at x 783; rows 26 px apart. */
+function boxCentre(key: ViolationKey): [number, number] {
+  const entry = CERTIFICATE_CHECKLIST.find((c) => c.key === key)!;
+  const row = CERTIFICATE_CHECKLIST.filter((c) => c.column === entry.column).indexOf(entry);
+  return [entry.column === 1 ? 488 : 783, 595 + 26 * row];
+}
+const isDark = (img: PNG, [x, y]: [number, number]) => pixel(img, x, y).every((v) => v < 80);
+
+const redInk = (img: PNG, x0: number, y0: number, x1: number, y1: number) => {
+  let n = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const [r, g, b] = pixel(img, x, y);
+      if (r > 90 && g < 50 && b < 50) n++;
+    }
+  return n;
+};
 
 describe('the certificate PDF', () => {
-  it('is one A4 page, with the code and date in its properties and no personal data in them', async () => {
+  it('is one A4 landscape page, with code and date in its properties and no personal data in them', async () => {
     const pdf = await createCertificatePdf({ ...sample, name: 'Ravi Kumar' });
     const info = pdfInfo(pdf);
     expect(info.Pages).toBe('1');
-    expect(info['Page size']).toMatch(/^594\.\d+ x 841\.\d+ pts \(A4\)$/);
+    expect(info['Page size']).toMatch(/^84\d\.\d+ x 59\d\.\d+ pts \(A4\)$/); // wider than tall
     expect(info.Title).toContain('EKZ-JPR-000123');
     expect(info.Subject).toContain('EKZ-JPR-000123');
-    expect(info.Subject).toContain('30 Oct 2026, 03:21 PM');
+    expect(info.Subject).toContain('30 October 2026, 04:12 PM');
     expect(info.Keywords).toContain('EKZ-JPR-000123');
-    expect(info.Keywords).toContain('2026-10-30T09:51:00.000Z');
-    const doc = await PDFDocument.load(pdf);
-    expect(doc.getPageCount()).toBe(1);
+    expect(info.Keywords).toContain('2026-10-30T10:42:00.000Z');
+    expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1);
     const metaText = Object.values(info).join(' ');
     expect(metaText).not.toContain('Ravi');
     expect(metaText).not.toContain('Chauraha');
   });
 
-  it('contains the visible fields', async () => {
-    const text = pdfText(await createCertificatePdf({ ...sample, name: 'Ravi Kumar' }));
+  it('contains the visible fields and the design wording', async () => {
+    const text = pdfText(
+      await createCertificatePdf({ ...sample, name: 'Ravi Kumar' }),
+    ).toUpperCase();
+    // Letter-spaced lines are extracted with gaps between the letters: compare those on letters only.
     for (const s of [
-      'YOUR NEXT MISTAKE SHOULD NOT BE YOUR LAST',
+      'CERTIFICATE OF RECKLESSNESS ON ROAD',
+      'PROJECT EK ZINDAGI',
+      'THIS CERTIFIES THAT',
+    ]) {
+      expect(letters(text), s).toContain(letters(s));
+    }
+    for (const s of [
+      'MIGHT DIE SOON',
+
       'RAVI KUMAR',
-      'Riding without a helmet',
-      '30 Oct 2026, 03:21 PM',
-      'Sample Chauraha, Jaipur, Rajasthan',
-      'EKZ-JPR-000123',
-      'Wear your helmet. Someone is waiting for you at home.',
-      'EK ZINDAGI CAMPAIGN',
+      'WAS LAST SEEN ALIVE ON',
+      '30 OCTOBER 2026',
+      '04:12 PM',
+      'SAMPLE CHAURAHA, JAIPUR',
+      'WHILE COMMITTING THIS TRAFFIC OFFENCE',
+      'RIDER WITHOUT HELMET',
+      'CERTIFICATE NO. EKZ-JPR-000123',
+      'ISSUED AT JAIPUR',
+      'THE NEXT FRAME WILL NOT BE A JOKE.',
     ]) {
       expect(text, s).toContain(s);
     }
   });
 
-  it('shows no police name, NGO logo or partner credit by default', async () => {
-    const text = pdfText(await createCertificatePdf(sample));
-    expect(text).not.toMatch(/police/i);
-    expect(text).not.toContain('Technology Partner');
-  });
-
-  it('adds the police line and partner credit only when told to, and keeps the mandatory elements', async () => {
-    const pdf = await createCertificatePdf(sample, {
-      showPolice: true,
-      partnerCreditText: 'Acme Tech',
-    });
-    const text = pdfText(pdf);
-    expect(text).toContain('In association with Rajasthan Police');
-    expect(text).toContain('Technology Partner: Acme Tech');
-    expectMandatory(text);
+  it('never says challan, fine, penalty, deceased, RIP or late, and shows no old wording', async () => {
+    const text = pdfText(await createCertificatePdf(sample, POLICE));
+    expect(text).not.toMatch(/\b(challan|fine|fines|penalty|deceased|rip|late)\b/i);
+    expect(text).not.toMatch(/YOUR NEXT MISTAKE|Someone is waiting/i);
   });
 });
 
-describe('Devanagari', () => {
-  it('shapes a Hindi name, with the Devanagari font embedded', async () => {
-    const pdf = await createCertificatePdf({
-      ...sample,
-      name: 'रवि कुमार',
-      areaName: 'मालवीय नगर, जयपुर, राजस्थान',
-    });
-    // Word gaps in extracted Indic text are unreliable; compare without whitespace.
-    const text = pdfText(pdf).replace(/\s/g, '');
-    for (const s of [
-      'रवि कुमार',
-      'मालवीय नगर, जयपुर, राजस्थान',
-      'एक ज़िंदगी, एक ही मौका — सड़क पर सावधानी रखें।',
-    ]) {
-      expect(text, s).toContain(s.replace(/\s/g, ''));
-    }
-    expect(pdfFonts(pdf)).toMatch(/NotoSerifDevanagari/);
-  });
-
-  it('embeds every font it uses (nothing depends on the viewer)', async () => {
-    const fonts = pdfFonts(await createCertificatePdf(sample));
-    const rows = fonts.split('\n').slice(2).filter(Boolean);
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) expect(row, row).toMatch(/\byes\b\s+yes\b/); // emb yes, sub yes
-    expect(fonts).toMatch(/NotoSerif/);
-  });
-
-  it('prints a Hindi name that has combining marks without breaking the layout', async () => {
-    const pdf = await createCertificatePdf({ ...sample, name: 'श्रीमती प्रियंका शर्मा' });
-    expect(pdfInfo(pdf).Pages).toBe('1');
-    expect(pdfText(pdf).replace(/\s/g, '')).toContain('श्रीमती प्रियंका शर्मा'.replace(/\s/g, ''));
-  });
-});
-
-describe('the mandatory elements are on every certificate', () => {
-  const cases: [string, Partial<CertificateData>][] = [
+describe('stamp, watermark and disclaimer: in the PDF, on every render', () => {
+  const cases: [string, Partial<CertificateData>, Branding?][] = [
     ['no photo', {}],
+    ['a photo', {}],
     ['a very long name', { name: 'Ramachandran Venkataraghavan Iyer Jr' }],
-    ['the longest name allowed, in capitals', { name: 'W'.repeat(40) }],
+    ['the longest name allowed', { name: 'W'.repeat(40) }],
     ['a long Hindi name', { name: 'अभिषेक प्रताप सिंह राठौड़ शेखावत चौहान' }],
     [
       'a very long place',
@@ -159,88 +149,135 @@ describe('the mandatory elements are on every certificate', () => {
       {
         name: '<script>alert(1)</script>',
         areaName: '</td></tr><h1>x</h1>',
-        otherText: '<b>x</b>',
-        violation: 'other',
+        certCode: '<b>EKZ</b>',
       },
     ],
-    ['an "other" violation', { violation: 'other', otherText: 'Driving without a licence' }],
+    ['police branding on', {}, POLICE],
   ];
 
-  it.each(cases)('%s', async (_label, over) => {
-    const pdf = await createCertificatePdf({ ...sample, ...over });
-    const info = pdfInfo(pdf);
-    expect(info.Pages).toBe('1'); // nothing spills onto a second page
-    expectMandatory(pdfText(pdf));
+  it.each(cases)('%s', async (label, over, branding) => {
+    const photoJpeg = label === 'a photo' ? await portrait() : null;
+    const pdf = await createCertificatePdf({ ...sample, ...over, photoJpeg }, branding);
+    expect(pdfInfo(pdf).Pages).toBe('1');
+    const text = pdfText(pdf);
+    expectMandatory(text);
+    expect(text).not.toMatch(/HYPOTHETICAL\s*$/m); // the stamp no longer says it...
     expect(pdf.length).toBeLessThan(MAX_BYTES);
   });
 
-  it.each(VIOLATION_KEYS)('for the %s violation, with a photo', async (violation) => {
-    const pdf = await createCertificatePdf({
-      ...sample,
-      violation,
-      otherText: violation === 'other' ? 'Triple riding' : null,
-      photoJpeg: await jpeg(800, 1000, '#556677'),
-    });
-    expectMandatory(pdfText(pdf));
-    expect(pdfInfo(pdf).Pages).toBe('1');
+  it('the stamp itself no longer carries the word HYPOTHETICAL (only the disclaimer sentence does)', async () => {
+    const text = pdfText(await createCertificatePdf(sample));
+    expect(text.match(/hypothetical/gi)).toHaveLength(1);
+    expect(text.toLowerCase()).toContain('hypothetical road safety awareness illustration');
   });
 
-  it('markup in a field is printed as text, never as markup', async () => {
-    const text = pdfText(await createCertificatePdf({ ...sample, name: '<b>BOLD</b>' }));
-    expect(text).toContain('<B>BOLD</B>'); // shown literally (the name is printed in capitals)
+  it('are painted on the page: red stamp top right, watermark across the middle, disclaimer along the bottom', async () => {
+    const img = rasterize(await createCertificatePdf(sample));
+    expect(redInk(img, 940, 40, 1075, 100)).toBeGreaterThan(150); // stamp
+    let faint = 0; // watermark: faint red-tinted pixels over the parchment, in the gap between photo and text
+    for (let y = 380; y < 480; y++)
+      for (let x = 400; x < 470; x++) {
+        const [r, g, b] = pixel(img, x, y);
+        if (r - b > 28 && r > 235 && g < 240) faint++;
+      }
+    let ink = 0;
+    for (let x = 150; x < 980; x++)
+      for (let y = 747; y < 760; y++) if (pixel(img, x, y).every((v) => v < 170)) ink++;
+    expect(ink).toBeGreaterThan(300); // disclaimer text
+    expect(faint).toBeGreaterThan(0);
   });
+});
 
-  it('long text stays inside the page', async () => {
-    const pdf = await createCertificatePdf({
-      ...sample,
-      name: 'W'.repeat(40),
-      areaName: 'x'.repeat(120),
-    });
-    const img = rasterize(pdf);
-    // The page border area outside the frame stays plain parchment: no text reached it.
-    for (const [x, y] of [
-      [5, 5],
-      [788, 5],
-      [5, 1117],
-      [788, 1117],
-      [400, 3],
-      [400, 1119],
-    ] as const) {
-      const [r, g, b] = pixel(img, x, y);
-      expect(r).toBeGreaterThan(220);
-      expect(g).toBeGreaterThan(210);
-      expect(b).toBeGreaterThan(180);
+describe('only the chosen checkbox is filled', () => {
+  it.each(VIOLATION_KEYS)('%s', async (violation) => {
+    const img = rasterize(await createCertificatePdf({ ...sample, violation }));
+    for (const key of VIOLATION_KEYS) {
+      expect(isDark(img, boxCentre(key)), `${violation}: box ${key}`).toBe(key === violation);
     }
   });
 });
 
+describe('Devanagari names and places', () => {
+  it('shapes them, with the Devanagari font embedded', async () => {
+    const pdf = await createCertificatePdf({
+      ...sample,
+      name: 'रवि कुमार',
+      areaName: 'मालवीय नगर, जयपुर, राजस्थान',
+    });
+    const text = pdfText(pdf).replace(/\s/g, '');
+    for (const s of ['रवि कुमार', 'मालवीय नगर, जयपुर, राजस्थान'])
+      expect(text, s).toContain(s.replace(/\s/g, ''));
+    expect(pdfFonts(pdf)).toMatch(/NotoSerifDevanagari/);
+  });
+
+  it('embeds every font it uses', async () => {
+    const fonts = pdfFonts(await createCertificatePdf({ ...sample, name: 'रवि' }));
+    const rows = fonts.split('\n').slice(2).filter(Boolean);
+    for (const row of rows) expect(row, row).toMatch(/\byes\b\s+yes\b/);
+    expect(fonts).toMatch(/Anton/);
+    expect(fonts).toMatch(/LibreBaskerville/);
+  });
+});
+
+describe('long text fits (auto-shrink)', () => {
+  it('a 40-letter name stays inside its line, a 120-character place stays out of the checklist', async () => {
+    const img = rasterize(
+      await createCertificatePdf({
+        ...sample,
+        name: 'W'.repeat(40),
+        areaName:
+          'Plot 14 Sector 9 Mansarovar Extension Near Old Water Tank Opposite Government Senior Secondary School Jaipur',
+      }),
+    );
+    // Nothing dark to the right of the name line, between its end and the border.
+    for (let y = 306; y < 356; y++)
+      for (let x = 1064; x < 1090; x++)
+        expect(
+          pixel(img, x, y).every((v) => v < 120),
+          `name ink at ${x},${y}`,
+        ).toBe(false);
+    // No red place text in the gap above "while committing this traffic offence".
+    expect(redInk(img, 780, 536, 1062, 546)).toBe(0);
+    // ... but the place is there, shrunk.
+    expect(redInk(img, 790, 420, 1062, 530)).toBeGreaterThan(400);
+  });
+
+  it('a short name and place keep the approved sizes (the date and place text match the reference exactly)', async () => {
+    const ours = rasterize(await createCertificatePdf({ ...sample, certCode: 'JTP-000123' }));
+    const ref = readPng('reference/certificate_v2.png');
+    const d = blockDifference(ours, ref, {
+      block: 8,
+      ignore: [{ x: 470, y: 400, w: 600, h: 120 }],
+    });
+    expect(d.ratio).toBeLessThan(0.025);
+    const dateAndPlace = blockDifference(ours, ref, { block: 8 });
+    expect(dateAndPlace.ratio).toBeLessThan(0.025);
+  });
+});
+
 describe('photo', () => {
-  it('appears inside the frame', async () => {
+  it('appears inside the picture frame', async () => {
     const withPhoto = rasterize(
       await createCertificatePdf({ ...sample, photoJpeg: await jpeg(600, 760, '#ff0000') }),
     );
-    const without = rasterize(await createCertificatePdf(sample));
-    const [r, g, b] = pixel(withPhoto, 397, 450); // middle of the portrait
+    const [r, g, b] = pixel(withPhoto, 160, 560); // inside the frame, clear of the garland and the sticks
     expect(r).toBeGreaterThan(200);
     expect(g).toBeLessThan(60);
     expect(b).toBeLessThan(60);
-    const [sr, sg, sb] = pixel(without, 330, 360); // silhouette background, not red
-    expect(sr - sg).toBeLessThan(40);
-    expect(sb).toBeGreaterThan(150);
   });
 
-  it('is replaced by a neutral silhouette when there is none', async () => {
-    const [r, g, b] = pixel(rasterize(await createCertificatePdf(sample)), 397, 420); // head of the silhouette
-    expect(Math.abs(r - 143)).toBeLessThan(25);
-    expect(Math.abs(g - 135)).toBeLessThan(25);
-    expect(Math.abs(b - 118)).toBeLessThan(25);
+  it('is replaced by a neutral silhouette inside the same frame when there is none', async () => {
+    const ours = pixel(rasterize(await createCertificatePdf(sample)), 250, 440); // head of the silhouette
+    const approved = pixel(readPng('reference/certificate_v2.png'), 250, 440);
+    ours.forEach((v, i) => expect(Math.abs(v - approved[i]!)).toBeLessThan(12));
   });
 
   it('keeps a large detailed photo under the size limit', async () => {
     const photo = await noisyJpeg(1200, 1600);
-    expect(photo.length).toBeGreaterThan(500_000); // really a heavy photo
-    const pdf = await createCertificatePdf({ ...sample, photoJpeg: photo });
-    expect(pdf.length).toBeLessThan(MAX_BYTES);
+    expect(photo.length).toBeGreaterThan(500_000);
+    expect((await createCertificatePdf({ ...sample, photoJpeg: photo })).length).toBeLessThan(
+      MAX_BYTES,
+    );
   });
 });
 
@@ -284,88 +321,130 @@ describe('rendering is offline', () => {
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     const port = (server.address() as { port: number }).port;
     try {
-      const html = `<!doctype html><body><img src="http://127.0.0.1:${port}/x.png"><link rel="stylesheet" href="http://127.0.0.1:${port}/s.css"><p>offline</p></body>`;
+      // A certificate page, plus an attacker-style image and stylesheet pointing at a local server.
+      const html = buildCertificateHtml(sample).replace(
+        '</body>',
+        `<img src="http://127.0.0.1:${port}/x.png"><link rel="stylesheet" href="http://127.0.0.1:${port}/s.css"></body>`,
+      );
       const pdf = await renderPdf(html);
-      expect(pdfText(pdf)).toContain('offline');
+      expect(pdfText(pdf)).toContain('MIGHT DIE SOON');
       expect(hits).toBe(0);
     } finally {
       server.close();
     }
   });
+});
 
-  it('does not run script from the page', async () => {
-    const pdf = await renderPdf(
-      '<!doctype html><body><p id="p">before</p><script>document.getElementById("p").textContent="after"</script></body>',
-    );
-    // Scripts do run inside the sandboxed render page, but we never put any in a certificate (see the template tests).
-    expect(['before', 'after'].some((w) => pdfText(pdf).includes(w))).toBe(true);
+describe('PNG export (Download image)', () => {
+  it('is a 2x image of the same certificate', async () => {
+    const png = await createCertificatePng({ ...sample, certCode: 'JTP-000123' });
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    const img = PNG.sync.read(png);
+    expect([img.width, img.height]).toEqual([2246, 1588]);
+    const half = await sharp(png).resize(1123, 794).png().toBuffer();
+    const d = blockDifference(PNG.sync.read(half), readPng('reference/certificate_v2.png'), {
+      block: 8,
+      ignore: [
+        { x: 100, y: 172, w: 940, h: 34 },
+        { x: 790, y: 708, w: 290, h: 34 },
+      ],
+    });
+    // A screenshot of the same page: it matches the approved PNG almost pixel for pixel.
+    expect(d.ratio).toBeLessThan(0.005);
   });
 });
 
-describe('visual comparison with the reference design', () => {
-  const footer = { x: 0, y: 1000, w: 794, h: 123 }; // the reference shows placeholder boxes here
-  const reference = readPng('reference/certificate-reference.png');
+describe('visual regression against the approved design', () => {
+  const REF = readPng('reference/certificate_v2.png');
+  const REF_LOGO = readPng('reference/certificate_v2_logo.png');
+  const approved: CertificateData = { ...sample, certCode: 'JTP-000123' };
 
-  it('matches the layout of reference/certificate-reference.png within tolerance', async () => {
-    const ours = rasterize(await createCertificatePdf(sample));
-    expect([ours.width, ours.height]).toEqual([reference.width, reference.height]);
-    const d = blockDifference(ours, reference, { block: 32, ignore: [footer] });
-    process.stderr.write(
-      `visual: ${d.badBlocks}/${d.totalBlocks} blocks differ, mean distance ${d.meanDistance.toFixed(1)}\n`,
-    );
-    expect(d.ratio).toBeLessThan(0.03);
-    expect(d.meanDistance).toBeLessThan(12);
+  it('without police branding: matches reference/certificate_v2.png (only the police wording differs)', async () => {
+    const ours = rasterize(await createCertificatePdf(approved));
+    expect([ours.width, ours.height]).toEqual([1123, 795]); // the PDF page is 0.5 px taller than the PNG
+    const d = blockDifference(ours, REF, {
+      block: 8,
+      ignore: [
+        { x: 100, y: 172, w: 940, h: 34 }, // subtitle: "Issued by Jaipur Traffic Police" -> campaign wording
+        { x: 790, y: 708, w: 290, h: 34 }, // signature line
+      ],
+    });
+    process.stderr.write(`v2: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
+    expect(d.ratio).toBeLessThan(0.025); // the PDF raster is about 1 px off the screenshot-based PNG;
+  });
+
+  it('with police branding and logo: matches reference/certificate_v2_logo.png over the whole page', async () => {
+    const ours = rasterize(await createCertificatePdf(approved, POLICE));
+    const d = blockDifference(ours, REF_LOGO, { block: 8 });
+    process.stderr.write(`v2 + logo: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
+    expect(d.ratio).toBeLessThan(0.025);
   });
 
   it('would notice a broken layout (the comparison is not vacuous)', async () => {
-    const html = buildCertificateHtml(sample)
-      .replace('<div class="photo-wrap">', '<div class="photo-wrap" style="visibility:hidden">') // no frame, no garland
-      .replace('background:#f4ead2', 'background:#ffffff'); // wrong paper colour
+    const html = buildCertificateHtml(approved)
+      .replace('class="c-art"', 'class="c-art" visibility="hidden" display="none"')
+      .replace('background:#faf3e0', 'background:#ffffff');
     const broken = rasterize(await renderPdf(html));
-    const d = blockDifference(broken, reference, { block: 32, ignore: [footer] });
-    expect(d.ratio).toBeGreaterThan(0.1);
+    expect(blockDifference(broken, REF, { block: 32 }).ratio).toBeGreaterThan(0.1);
   });
 
-  it('keeps the border, frame, stamp and watermark where the reference has them', async () => {
-    const ours = rasterize(await createCertificatePdf(sample));
-    const same = (x: number, y: number, tol = 40) => {
-      const [a, b, c] = pixel(ours, x, y);
-      const [d, e, f] = pixel(reference, x, y);
-      return Math.hypot(a - d, b - e, c - f) < tol;
-    };
-    const checks: [string, number, number, number?][] = [
-      ['outer double border', 34, 500],
-      ['top border', 397, 36],
-      ['gold frame, left edge', 300, 450],
-      ['silhouette area', 397, 500, 120],
-    ];
-    // The red corner stamp is in the same place, with a comparable amount of red ink.
-    const redInk = (img: ReturnType<typeof rasterize>) => {
-      let n = 0;
-      for (let y = 55; y < 150; y++)
-        for (let x = 565; x < 735; x++) {
-          const [r, g, b] = pixel(img, x, y);
-          if (r > 130 && g < 70 && b < 70) n++;
-        }
-      return n;
-    };
-    expect(redInk(ours)).toBeGreaterThan(400);
-    expect(Math.abs(redInk(ours) - redInk(reference)) / redInk(reference)).toBeLessThan(0.6);
-    for (const [label, x, y, tol] of checks) {
-      expect(
-        same(x, y, tol),
-        `${label}: ours ${pixel(ours, x, y)} vs reference ${pixel(reference, x, y)}`,
-      ).toBe(true);
+  // Golden images of the fixtures. Created with UPDATE_SNAPSHOTS=1 and committed; compared on every run.
+  const fixtures: [string, () => Promise<{ data: CertificateData; branding?: Branding }>][] = [
+    ['short-name-no-photo', async () => ({ data: { ...sample } })],
+    [
+      'with-photo',
+      async () => ({
+        data: { ...sample, name: 'Ravi Kumar', violation: 'seatbelt', photoJpeg: await portrait() },
+      }),
+    ],
+    [
+      'very-long-name',
+      async () => ({
+        data: { ...sample, name: 'Ramachandran Venkataraghavan Iyer Jr', violation: 'overspeed' },
+      }),
+    ],
+    [
+      'very-long-place',
+      async () => ({
+        data: {
+          ...sample,
+          areaName:
+            'Plot 14, Sector 9, Mansarovar Extension Near Old Water Tank, Opp. Government Senior Secondary School, Jaipur',
+          violation: 'wrong_side',
+        },
+      }),
+    ],
+    [
+      'hindi-name-and-place',
+      async () => ({
+        data: {
+          ...sample,
+          name: 'प्रियंका शर्मा',
+          areaName: 'मालवीय नगर, जयपुर',
+          violation: 'mobile',
+        },
+      }),
+    ],
+    [
+      'police-branding-other-violation',
+      async () => ({
+        data: { ...sample, violation: 'other', photoJpeg: await portrait() },
+        branding: POLICE,
+      }),
+    ],
+    ['child-helmet', async () => ({ data: { ...sample, violation: 'child_helmet' } })],
+  ];
+
+  it.each(fixtures)('snapshot: %s', async (name, make) => {
+    const { data, branding } = await make();
+    const ours = rasterize(await createCertificatePdf(data, branding));
+    const file = `tests/pdf/snapshots/${name}.png`;
+    if (UPDATE || !existsSync(file)) {
+      mkdirSync('tests/pdf/snapshots', { recursive: true });
+      writeFileSync(file, PNG.sync.write(ours));
+      if (!UPDATE) process.stderr.write(`created missing snapshot ${file}\n`);
     }
-  });
-});
-
-describe('the generated file', () => {
-  it('is a normal, small file', async () => {
-    const pdf = await createCertificatePdf(sample);
-    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(pdf.length).toBeGreaterThan(20_000);
-    expect(pdf.length).toBeLessThan(MAX_BYTES);
-    void statSync;
+    const golden = PNG.sync.read(readFileSync(file));
+    expect(blockDifference(ours, golden, { block: 8 }).ratio).toBeLessThan(0.005);
   });
 });

@@ -7,10 +7,10 @@ import type { CertificateData } from '@/lib/pdf/template';
 
 export const sample: CertificateData = {
   certCode: 'EKZ-JPR-000123',
-  name: 'SAMPLE NAME',
+  name: 'Sample Name',
   violation: 'helmet',
-  areaName: 'Sample Chauraha, Jaipur, Rajasthan',
-  createdAt: new Date('2026-10-30T09:51:00Z'), // 03:21 PM IST
+  areaName: 'Sample Chauraha, Jaipur',
+  createdAt: new Date('2026-10-30T10:42:00Z'), // 04:12 PM IST
 };
 
 function inTempFile<T>(pdf: Buffer, fn: (path: string) => T): T {

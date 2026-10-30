@@ -22,11 +22,11 @@ const photo = opt('photo');
 const started = Date.now();
 const pdf = await createCertificatePdf(
   {
-    certCode: 'EKZ-JPR-000123',
-    name: opt('name') ?? 'SAMPLE NAME',
+    certCode: opt('code') ?? 'EKZ-JPR-000123',
+    name: opt('name') ?? 'Sample Name',
     violation: (opt('violation') ?? 'helmet') as ViolationKey,
-    areaName: opt('place') ?? 'Sample Chauraha, Jaipur, Rajasthan',
-    createdAt: new Date('2026-10-30T09:51:00Z'), // 03:21 PM IST
+    areaName: opt('place') ?? 'Sample Chauraha, Jaipur',
+    createdAt: new Date('2026-10-30T10:42:00Z'), // 04:12 PM IST
     photoJpeg: photo ? readFileSync(photo) : null,
   },
   brandingFromEnv(),

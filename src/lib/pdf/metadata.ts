@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
-import { formatCertificateDateTime } from './template';
+import { formatDateParts } from '@/components/certificate/certificate-data';
 
 /**
  * Writes the certificate code and date into the PDF's own properties. The person's name is
@@ -11,7 +11,8 @@ export async function stampMetadata(
   createdAt: Date,
 ): Promise<Buffer> {
   const doc = await PDFDocument.load(pdf);
-  const when = formatCertificateDateTime(createdAt);
+  const { dateText, timeText } = formatDateParts(createdAt);
+  const when = `${dateText}, ${timeText}`;
   doc.setTitle(`EK ZINDAGI awareness certificate ${certCode}`);
   doc.setSubject(
     `Hypothetical road safety awareness illustration. Code ${certCode}. Issued ${when} IST.`,
