@@ -11,6 +11,8 @@ const securityHeaders = [
     value: 'camera=(self), geolocation=(self), microphone=(), payment=()',
   },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  // Nothing here is for search engines or archives.
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
 ];
 
 const CERTIFICATE_FILES = [
@@ -36,7 +38,15 @@ const config: NextConfig = {
   },
   reactStrictMode: true,
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Pages and API answers can hold officer-only data: never cached by the browser or a proxy.
+      // (Static assets keep their long-lived caching.)
+      {
+        source: '/((?!_next/static|_next/image|fonts/).*)',
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
+      },
+    ];
   },
 };
 

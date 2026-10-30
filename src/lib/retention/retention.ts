@@ -85,7 +85,11 @@ export async function runRetention(
   return { purged, failed, overdue: left.overdue, dirty: left.dirty };
 }
 
-async function removeFiles(ports: RetentionPorts, e: DueEntry): Promise<boolean> {
+/** Deletes an entry's files and checks they are gone. False if any file is still there or could not be deleted. */
+export async function removeFiles(
+  ports: Pick<RetentionPorts, 'deleteFile' | 'fileExists'>,
+  e: DueEntry,
+): Promise<boolean> {
   const files: [Bucket, string][] = [];
   if (e.photoPath) files.push(['photos', e.photoPath]);
   if (e.pdfPath) files.push(['pdfs', e.pdfPath]);

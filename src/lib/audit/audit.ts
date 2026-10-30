@@ -25,7 +25,9 @@ export type AuditAction =
   | 'entry_reviewed'
   | 'delivery_retried'
   | 'campaign_paused'
-  | 'campaign_resumed';
+  | 'campaign_resumed'
+  | 'entry_purged_early'
+  | 'opt_out_added';
 
 /** Keep in step with the audit_meta_no_personal_keys constraint in the first migration. */
 export const FORBIDDEN_AUDIT_KEYS = [

@@ -4,7 +4,7 @@ import { ACTIVITY_COOKIE, activityCookieOptions } from '@/lib/auth/activity';
 import { isSessionExpired, parseActivityCookie } from '@/lib/domain/session-expiry';
 import { authCookieOptions } from '@/lib/supabase/cookie-options';
 
-const PUBLIC_PATHS = new Set(['/login', '/api/auth/login', '/api/auth/logout']);
+const PUBLIC_PATHS = new Set(['/login', '/robots.txt', '/api/auth/login', '/api/auth/logout']);
 
 function contentSecurityPolicy(nonce: string): string {
   const dev = process.env.NODE_ENV === 'development';

@@ -241,6 +241,16 @@ export default async function SupervisorHome() {
           )}
         </section>
 
+        <p>
+          <Link
+            className="inline-flex min-h-11 items-center text-accent underline"
+            href="/requests"
+          >
+            नागरिक के अनुरोध (डेटा हटाना, संदेश बंद) / Requests from citizens (delete data, stop
+            messages)
+          </Link>
+        </p>
+
         <section aria-labelledby="ret-h">
           <h2 id="ret-h" className="mb-1 text-lg font-semibold">
             डेटा हटाना / Data deletion

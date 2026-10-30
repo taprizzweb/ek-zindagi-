@@ -30,6 +30,8 @@ const ACTIONS = [
   'campaign_resumed',
   'retention_run',
   'retention_leftover',
+  'entry_purged_early',
+  'opt_out_added',
 ] as const;
 
 type Params = { action?: string; officer?: string; from?: string; to?: string; page?: string };

@@ -1493,3 +1493,46 @@ describe('retention, settings, review and counts (migration 6)', () => {
     );
   });
 });
+
+describe('data requests (migration 7)', () => {
+  it('finds an entry by its certificate code, for the server only', async () => {
+    const id = '81000000-0000-4000-8000-000000000001';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, person_name, phone_e164, phone_hash, pdf_path)
+       values ($1, 'EKZ-JPR-DRTEST1', $2, 'helmet', 'manual', 'ready', 'Ravi Kumar', '+919876543210', $3, 'x.pdf')`,
+      [id, OFFICER1, HASH],
+    );
+    try {
+      const r = await as(
+        'service_role',
+        null,
+        async () => (await q(`select * from public.entry_for_purge('EKZ-JPR-DRTEST1')`)).rows,
+      );
+      expect(r).toEqual([{ id, photo_path: null, pdf_path: 'x.pdf', purged: false }]);
+      expect(
+        await as(
+          'service_role',
+          null,
+          async () => (await q(`select * from public.entry_for_purge('EKZ-JPR-NOSUCH1')`)).rows,
+        ),
+      ).toEqual([]);
+      for (const [role, uid] of [
+        ['authenticated', ADMIN],
+        ['authenticated', SUPERVISOR],
+        ['anon', null],
+      ] as const) {
+        await as(role, uid, () =>
+          denied(q(`select * from public.entry_for_purge('EKZ-JPR-DRTEST1')`)),
+        );
+      }
+    } finally {
+      await q('delete from public.entries where id = $1', [id]);
+    }
+  });
+
+  it('accepts the new audit actions', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('entry_purged_early', '{}'), ('opt_out_added', '{}')`,
+    );
+  });
+});

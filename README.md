@@ -11,18 +11,29 @@ certificate (PDF) and sends it to the person's WhatsApp number. Personal data is
 
 ## Status
 
-| Milestone                                                     | State       |
-| ------------------------------------------------------------- | ----------- |
-| 1. Setup, auth, roles, RLS, audit log, admin creates officers | done        |
-| 2. Officer form                                               | done        |
-| 3. Certificate PDF (redesigned: landscape v2)                 | done        |
-| 4. Bridge delivery (24-hour links, wa.me hand-off)            | done        |
-| 5. Cloud API delivery (webhook, STOP, retries, kill switch)   | done        |
-| 6. Retention, supervisor/admin screens, kill switch           | done        |
-| 7. Hardening, docs, deploy                                    | not started |
+| Milestone                                                     | State |
+| ------------------------------------------------------------- | ----- |
+| 1. Setup, auth, roles, RLS, audit log, admin creates officers | done  |
+| 2. Officer form                                               | done  |
+| 3. Certificate PDF (redesigned: landscape v2)                 | done  |
+| 4. Bridge delivery (24-hour links, wa.me hand-off)            | done  |
+| 5. Cloud API delivery (webhook, STOP, retries, kill switch)   | done  |
+| 6. Retention, supervisor/admin screens, kill switch           | done  |
+| 7. Hardening, docs, deploy                                    | done  |
 
-This README grows with each milestone. Deploy steps, the real-phone test script and the
-privacy documents arrive in milestone 7.
+All seven milestones are built. **It has not been run against a real Supabase, a real WhatsApp account or a real
+phone.** Read `docs/known-limitations.md` first: it lists what is verified, what is not, what is not built (for example
+two-step sign-in), and what to confirm with a lawyer and the police.
+
+| Document                     | For                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| `docs/deploy.md`             | Setting up Supabase and Vercel, first admin, smoke test, switching delivery mode |
+| `docs/whatsapp-setup.md`     | Meta account, template, webhook, kill switch, retries                            |
+| `docs/data-flow.md`          | Exactly what is collected, why, where it lives and when it is deleted            |
+| `docs/privacy-notice.md`     | Hindi and English notice drafts for officers (placeholders to fill)              |
+| `docs/runbook.md`            | Wrong number, deletion requests, lost phone, leaked secret, stopping now         |
+| `docs/manual-device-test.md` | The checklist for real phones and real WhatsApp                                  |
+| `docs/known-limitations.md`  | Limits, open decisions, what to confirm with a lawyer and the police             |
 
 ## How it works now (after the design and flow update)
 
@@ -68,6 +79,19 @@ bundled in `public/fonts`; Devanagari names and places fall back to Noto Serif D
 > this certificate. **Never publish a police-branded build or demo on a public URL**; keep it local or
 > internal. Without the flag, the subtitle reads "Project EK ZINDAGI · Jaipur", the signature line reads
 > "Project EK ZINDAGI · Awareness camp", and the certificate number stays `EKZ-JPR-xxxxxxx`.
+
+### Other settings
+
+All settings are listed in `.env.example`; `tests/unit/env-docs.test.ts` keeps it complete. Besides those above and in
+`docs/deploy.md` and `docs/whatsapp-setup.md`:
+
+| Setting                                                    | Default  | Meaning                                                                                             |
+| ---------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `LOGIN_MAX_ATTEMPTS_PER_IP`                                | 20       | Login attempts per address per 15 minutes                                                           |
+| `ENTRY_MAX_PER_OFFICER_HOUR` / `ENTRY_MAX_PER_OFFICER_DAY` | 60 / 300 | Entries (and sends) one officer may make                                                            |
+| `ENTRY_MAX_PER_IP_HOUR`                                    | 200      | Entries from one address                                                                            |
+| `GEOCODER` / `GOOGLE_MAPS_API_KEY`                         | none     | `none`: the officer types the place. `google` needs the key and sends rounded coordinates to Google |
+| `CHROMIUM_EXECUTABLE_PATH`                                 | empty    | Local development and tests only: a Chrome binary. On Vercel the bundled build is used              |
 
 ### The officer screen
 
@@ -136,9 +160,16 @@ The date and time on the certificate is the **server's** time of record, not the
 - **Pause** is either the `CAMPAIGN_PAUSED` environment variable (a hard switch the screen cannot undo)
   or the saved setting. It stops sends in both delivery modes and the background retry job.
 
-### Still to come
+### Hardening and requests from citizens (milestone 7)
 
-Milestone 7 (hardening, privacy documents, runbook, deploy steps, manual device test script).
+- **Security checks on the production build** (`tests/e2e/hardening.e2e.test.ts`): security headers and a
+  fresh CSP nonce on every page, no-store caching and no-indexing, `robots.txt`, session cookies that are
+  HttpOnly, Secure and SameSite, **every API route found on disk refuses a stranger** (a new route that forgets
+  its check fails the test), no secret or secret setting name anywhere in the browser bundle, and **no name,
+  number, place, password, token or secret in the server logs** after a round of normal and failing requests.
+- `tests/unit/env-docs.test.ts` fails if a setting exists in code but is missing from `.env.example` or the docs.
+- **Requests from citizens** (`/requests`, supervisor or admin): delete one entry's data at once by the code on
+  the certificate (files deleted and checked first, audited), or add a number to the opt-out list (hash only).
 
 ## What exists after milestone 1
 
@@ -231,6 +262,13 @@ accessibility audit (labels, 44 px targets, contrast of all text, focus ring). I
 Chromium (`npx playwright install chromium`) and Poppler. Supabase is replaced by
 `tests/e2e/fake-supabase.ts`, a test-only in-memory stand-in. Set `E2E_SKIP_BUILD=1` to reuse a build.
 
+### Other test suites
+
+- `npm run test:integration`: the WhatsApp client, sending, retries, webhook and STOP against a fake WhatsApp API.
+- `tests/e2e/operations.e2e.test.ts`: supervisor and admin screens, pause, settings, audit log, retention job, citizen requests.
+- `tests/e2e/cloud-api.e2e.test.ts`: the real app in cloud API mode, signed webhooks, cron, supervisor retry.
+- `tests/e2e/hardening.e2e.test.ts`: security checks on the production build (see milestone 7 above).
+
 ## Known limits of the tests
 
 - The tests do not run a real Supabase stack (GoTrue, PostgREST, Storage). RLS is tested against
@@ -241,5 +279,5 @@ Chromium (`npx playwright install chromium`) and Poppler. Supabase is replaced b
   above and walk through login, forced password change, create officer, disable officer.
 - The browser tests use the fake Supabase above, so they prove the form, the server rules and what gets
   stored, not the real Supabase Auth, PostgREST or Storage. Real GPS accuracy, real phone cameras and
-  real mobile networks need the manual device test in milestone 7.
+  real mobile networks need the manual device test in `docs/manual-device-test.md`.
 - CI is configured (`.github/workflows/ci.yml`) but has not run yet.

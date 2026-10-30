@@ -445,3 +445,116 @@ describe('retention job', () => {
     );
   });
 });
+
+describe('requests from citizens', () => {
+  const code = 'EKZ-JPR-23456AB'; // replaced below by a code with a valid check character
+
+  it("a supervisor deletes one entry's data by its certificate code, from the screen", async () => {
+    const { generateCertCode } = await import('../../src/lib/domain/cert-code');
+    const certCode = generateCertCode();
+    const id = seed({ cert_code: certCode, photo_path: 'o/r.jpg', pdf_path: 'o/r.pdf' });
+    const other = seed({ photo_path: 'o/keep.jpg', pdf_path: 'o/keep.pdf' });
+    fake.state.uploads.push(
+      { path: 'o/r.jpg', bytes: Buffer.from('x') },
+      { path: 'o/keep.jpg', bytes: Buffer.from('x') },
+    );
+    fake.state.pdfs.push(
+      { path: 'o/r.pdf', bytes: Buffer.from('%PDF') },
+      { path: 'o/keep.pdf', bytes: Buffer.from('%PDF') },
+    );
+
+    const page = await signIn(SUPERVISOR, '/supervisor');
+    await page.getByRole('link', { name: /Requests from citizens/ }).click();
+    await page.waitForURL('**/requests');
+    await page.fill('#cert-code', certCode.toLowerCase());
+    await page.getByRole('button', { name: /Delete data now/ }).click();
+    await page.getByRole('button', { name: /Yes, delete/ }).click();
+    await expect(page.getByRole('status')).toContainText('has been deleted');
+
+    expect(fake.state.entries.find((e) => e.id === id)).toMatchObject({
+      person_name: null,
+      phone_e164: null,
+      pdf_path: null,
+    });
+    expect(fake.state.entries.find((e) => e.id === other)).toMatchObject({
+      person_name: 'Ravi Kumar',
+    });
+    expect(fake.state.uploads.map((u) => u.path)).toEqual(['o/keep.jpg']);
+    expect(fake.state.pdfs.map((u) => u.path)).toEqual(['o/keep.pdf']);
+    const a = fake.state.audit.find((x) => x.action === 'entry_purged_early');
+    expect(a).toMatchObject({ actor_code: SUPERVISOR.officerCode, entry_id: id });
+    expect(JSON.stringify(fake.state.audit)).not.toMatch(/Ravi|9876543210/);
+    expect(code).toBeTruthy();
+  });
+
+  it('wrong, unknown and repeated codes are answered clearly', async () => {
+    const { generateCertCode } = await import('../../src/lib/domain/cert-code');
+    const page = await signIn(ADMIN, '/admin');
+    const post = (certCode: string) =>
+      page.evaluate(async (c) => {
+        const r = await fetch('/api/requests/purge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ certCode: c }),
+        });
+        return { status: r.status, body: (await r.json()) as Record<string, unknown> };
+      }, certCode);
+    expect((await post('nonsense')).status).toBe(400);
+    expect((await post(generateCertCode())).status).toBe(404);
+    const known = generateCertCode();
+    seed({ cert_code: known });
+    expect((await post(known)).body).toMatchObject({ purged: true });
+    expect((await post(known)).body).toMatchObject({ alreadyPurged: true });
+  });
+
+  it('adds a number to the opt-out list (hash only) and the next entry for it is refused', async () => {
+    const page = await signIn(SUPERVISOR, '/supervisor');
+    await page.goto(`${APP_URL}/requests`);
+    await page.fill('#optout-phone', '98765 43210');
+    await page.getByRole('button', { name: /Stop messaging this number/ }).click();
+    await expect(page.getByRole('status')).toContainText('will not be messaged again');
+    const { createHmac } = await import('node:crypto');
+    const hash = createHmac('sha256', appEnv.PHONE_HASH_SECRET)
+      .update('+919876543210')
+      .digest('hex');
+    expect(fake.state.optOuts).toEqual([hash]);
+    expect(JSON.stringify(fake.state.audit)).not.toMatch(/9876543210/);
+    expect(fake.state.audit.map((a) => a.action)).toContain('opt_out_added');
+  });
+
+  it('refuses a bad number, and an officer cannot use any of it', async () => {
+    const sup = await signIn(SUPERVISOR, '/supervisor');
+    const status = (url: string, body: unknown) =>
+      sup.evaluate(
+        async ([u, b]) =>
+          (
+            await fetch(u as string, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(b),
+            })
+          ).status,
+        [url, body] as const,
+      );
+    expect(await status('/api/requests/opt-out', { phone: '12345' })).toBe(400);
+    expect(await status('/api/requests/opt-out', { phone: '9876543210', extra: 1 })).toBe(400);
+    const officer = await signIn(OFFICER, '/officer');
+    const code403 = await officer.evaluate(async () => {
+      const a = await fetch('/api/requests/opt-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: '9876543210' }),
+      });
+      const b = await fetch('/api/requests/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ certCode: 'EKZ-JPR-AAAAAAA' }),
+      });
+      return [a.status, b.status];
+    });
+    expect(code403).toEqual([403, 403]);
+    await officer.goto(`${APP_URL}/requests`);
+    expect(new URL(officer.url()).pathname).toBe('/officer');
+    expect(fake.state.optOuts).toEqual([]);
+  });
+});

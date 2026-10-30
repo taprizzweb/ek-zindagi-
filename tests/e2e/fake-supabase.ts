@@ -384,6 +384,23 @@ export async function startFakeSupabase(
       st.links = st.links.filter((l) => !p_ids.includes(String(l.entry_id)));
       return send(200, n);
     }
+    if (path === '/rest/v1/rpc/entry_for_purge') {
+      const { p_cert_code } = JSON.parse(body.toString()) as { p_cert_code: string };
+      const e = st.entries.find((r) => r.cert_code === p_cert_code);
+      return send(
+        200,
+        e
+          ? [
+              {
+                id: e.id,
+                photo_path: e.photo_path ?? null,
+                pdf_path: e.pdf_path ?? null,
+                purged: Boolean(e.purged_at),
+              },
+            ]
+          : [],
+      );
+    }
     if (path === '/rest/v1/rpc/housekeeping') return send(200, { links: 0 });
     if (path === '/rest/v1/rpc/retention_leftovers') {
       const overdue = st.entries.filter(
