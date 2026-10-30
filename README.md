@@ -83,13 +83,13 @@ bundled in `public/fonts`; Devanagari names and places fall back to Noto Serif D
 All settings are listed in `.env.example`; `tests/unit/env-docs.test.ts` keeps it complete. Besides those above and in
 `docs/deploy.md` and `docs/whatsapp-setup.md`:
 
-| Setting                                                    | Default  | Meaning                                                                                             |
-| ---------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `LOGIN_MAX_ATTEMPTS_PER_IP`                                | 20       | Login attempts per address per 15 minutes                                                           |
-| `ENTRY_MAX_PER_OFFICER_HOUR` / `ENTRY_MAX_PER_OFFICER_DAY` | 60 / 300 | Entries (and sends) one officer may make                                                            |
-| `ENTRY_MAX_PER_IP_HOUR`                                    | 200      | Entries from one address                                                                            |
-| `GEOCODER` / `GOOGLE_MAPS_API_KEY`                         | none     | `none`: the officer types the place. `google` needs the key and sends rounded coordinates to Google |
-| `CHROMIUM_EXECUTABLE_PATH`                                 | empty    | Local development and tests only: a Chrome binary. On Vercel the bundled build is used              |
+| Setting                                                    | Default  | Meaning                                                                                                                                                            |
+| ---------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `LOGIN_MAX_ATTEMPTS_PER_IP`                                | 20       | Login attempts per address per 15 minutes                                                                                                                          |
+| `ENTRY_MAX_PER_OFFICER_HOUR` / `ENTRY_MAX_PER_OFFICER_DAY` | 60 / 300 | Entries (and sends) one officer may make                                                                                                                           |
+| `ENTRY_MAX_PER_IP_HOUR`                                    | 200      | Entries from one address                                                                                                                                           |
+| `GEOCODER` / `GOOGLE_MAPS_API_KEY`                         | osm      | `osm`: free OpenStreetMap place names, no key (light use). `google`: needs the key. `none`: the officer types the place. Only rounded coordinates leave the server |
+| `CHROMIUM_EXECUTABLE_PATH`                                 | empty    | Local development and tests only: a Chrome binary. On Vercel the bundled build is used                                                                             |
 
 ### The officer screen
 

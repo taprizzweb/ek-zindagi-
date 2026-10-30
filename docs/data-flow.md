@@ -56,12 +56,12 @@ The browser can read the database only with an officer's own sign-in and only th
 
 ## Where data goes outside our system
 
-| Service                                           | What it receives                                                             | Why                                                                                        |
-| ------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **WhatsApp** (cloud API mode: Meta)               | The person's number, name, the safety line, the certificate code and the PDF | To deliver the message. Meta's own retention applies; we cannot recall a delivered message |
-| **WhatsApp on the officer's phone** (bridge mode) | The same, through the officer's own WhatsApp                                 | To deliver. The message stays on that phone and the person's phone                         |
-| **Google Maps** (only if `GEOCODER=google`)       | Coordinates (rounded)                                                        | To turn GPS into a place name. Off by default                                              |
-| **Hosting** (Vercel, Supabase)                    | Everything above, as a normal host. Web server logs hold addresses and paths | To run the system. The application itself writes no personal data to logs (tested)         |
+| Service                                                                                | What it receives                                                             | Why                                                                                        |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **WhatsApp** (cloud API mode: Meta)                                                    | The person's number, name, the safety line, the certificate code and the PDF | To deliver the message. Meta's own retention applies; we cannot recall a delivered message |
+| **WhatsApp on the officer's phone** (bridge mode)                                      | The same, through the officer's own WhatsApp                                 | To deliver. The message stays on that phone and the person's phone                         |
+| **OpenStreetMap** (`GEOCODER=osm`, the default) or **Google Maps** (`GEOCODER=google`) | Coordinates (rounded)                                                        | To turn GPS into a place name. Off by default                                              |
+| **Hosting** (Vercel, Supabase)                                                         | Everything above, as a normal host. Web server logs hold addresses and paths | To run the system. The application itself writes no personal data to logs (tested)         |
 
 ## Life of one entry
 

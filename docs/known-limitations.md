@@ -89,7 +89,7 @@ I am not a lawyer and this is not legal advice. These are the points the design 
 ## 6. Decisions still open
 
 - Supabase project region and the owner of the accounts.
-- Reverse geocoding provider (the pilot works with `GEOCODER=none`: officers type the place) and its cost.
+- Reverse geocoding provider: the pilot uses free OpenStreetMap (`GEOCODER=osm`, light use, no key). For heavy use or better Indian place names switch to Google (`GEOCODER=google`) and its cost.
 - Whether a supervisor may override the 24-hour duplicate rule (today: no).
 - Printing the Hindi slogan on the certificate (not printed today).
 - Whether to check that a number is on WhatsApp before generating the certificate.

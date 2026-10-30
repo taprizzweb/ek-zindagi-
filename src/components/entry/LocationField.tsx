@@ -40,7 +40,9 @@ export default function LocationField({
       const lng = round3(pos.lng);
       let name: string | null = null;
       try {
-        const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+        const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`, {
+          signal: AbortSignal.timeout(8000),
+        });
         if (res.ok) name = ((await res.json()) as { areaName: string | null }).areaName;
       } catch {
         /* the officer types the place instead */
@@ -95,12 +97,13 @@ export default function LocationField({
           en="Place name"
           value={place}
           onChange={(e) => setPlace(e.target.value)}
-          readOnly={geocoded}
           maxLength={120}
           autoComplete="off"
           aria-invalid={error ? true : undefined}
           hint={
-            geocoded ? undefined : 'जैसे: सी-स्कीम चौराहा, जयपुर / e.g. C-Scheme Chauraha, Jaipur'
+            geocoded
+              ? 'अपने आप भरा गया। ठीक न लगे तो बदलें। / Filled in automatically. Change it if it is not right.'
+              : 'जैसे: सी-स्कीम चौराहा, जयपुर / e.g. C-Scheme Chauraha, Jaipur'
           }
         />
       ) : null}

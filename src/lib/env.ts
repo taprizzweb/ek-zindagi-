@@ -49,7 +49,8 @@ const serverObject = z.object({
     .default('v21.0'),
   /** Only tests change this. */
   WHATSAPP_API_BASE: z.url().default('https://graph.facebook.com'),
-  GEOCODER: z.enum(['none', 'google']).default('none'),
+  /** osm: free OpenStreetMap place names (no key). google: needs GOOGLE_MAPS_API_KEY. none: the officer types the place. */
+  GEOCODER: z.enum(['none', 'google', 'osm']).default('osm'),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 

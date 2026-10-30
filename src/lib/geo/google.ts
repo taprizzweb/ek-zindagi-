@@ -38,7 +38,7 @@ export function parseGoogleGeocode(body: unknown): string | null {
 
 export type FetchLike = (
   url: string,
-  init?: { signal?: AbortSignal },
+  init?: { signal?: AbortSignal; headers?: Record<string, string> },
 ) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
 
 /** Reverse geocoding with Google. Coordinates are rounded to 3 decimals before they leave the server. */

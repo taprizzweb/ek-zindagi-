@@ -38,7 +38,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 | `DELIVERY_MODE` | `bridge` to start |
 | `SHOW_POLICE_BRANDING` | `true` only with written permission, otherwise `false` |
 
-Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAGE_LANGUAGE` and `GEOCODER` (`none` means officers type the place).
+Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK` and `GEOCODER` (default `osm`: place names fill in by themselves; `none` means officers type the place).
 
 3. Custom domain with https (Vercel does the certificate). The app sets HSTS, so use a domain you will keep.
 4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` and `/api/cron/delivery-retry` **once a day**, so it deploys on the free (Hobby) plan (Hobby refuses anything more frequent and the deploy fails). The main deletion already happens immediately when a message is sent; the daily job only sweeps leftovers and retries failed sends. For every-5-minute runs, either use a Vercel plan that allows it, or point a free external scheduler (for example cron-job.org) at both URLs with the header `Authorization: Bearer <CRON_SECRET>`. Vercel sends that header itself for its own cron jobs.
