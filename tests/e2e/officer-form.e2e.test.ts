@@ -223,11 +223,11 @@ describe('officer form: live preview', () => {
   it('shows the photo in the frame as soon as it is taken, and the silhouette again after removing it', async () => {
     const page = await phone();
     await openForm(page);
-    await expect(cert(page).locator('image')).toHaveCount(0);
+    await expect(cert(page).locator('image')).toHaveCount(1); // only the frame
     await takePhoto(page);
-    await expect(cert(page).locator('image')).toHaveCount(1);
+    await expect(cert(page).locator('image')).toHaveCount(2);
     await page.getByRole('button', { name: /Remove photo/ }).click();
-    await expect(cert(page).locator('image')).toHaveCount(0);
+    await expect(cert(page).locator('image')).toHaveCount(1);
   });
 
   it('shrinks long text to fit, as the PDF does', async () => {
