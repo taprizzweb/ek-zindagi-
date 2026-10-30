@@ -35,6 +35,7 @@ const config: NextConfig = {
     // starts the serverless Chromium build.
     '/api/entries/[id]/certificate': CERTIFICATE_FILES,
     '/api/entries/[id]/certificate/image': CERTIFICATE_FILES,
+    '/api/entries/[id]/certificate/pdf': CERTIFICATE_FILES,
   },
   reactStrictMode: true,
   async headers() {

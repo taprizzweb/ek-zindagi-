@@ -58,7 +58,9 @@ async function withPage<T>(html: string, run: (page: Page) => Promise<T>): Promi
     // The page's own script waits for the fonts and fits the text, then sets this flag.
     await page.waitForSelector('body[data-fit-done]');
     return await run(page);
-  } catch {
+  } catch (err) {
+    // Only the technical reason is logged (no entry data), so a deploy problem is visible in the host logs.
+    console.error('pdf render failed:', err instanceof Error ? err.message : String(err));
     throw new AppError('pdf_failed', 502);
   } finally {
     await browser?.close().catch(() => undefined);

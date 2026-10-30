@@ -1,6 +1,13 @@
 {
+  "regions": ["syd1"],
   "crons": [
-    { "path": "/api/cron/retention", "schedule": "30 2 * * *" },
-    { "path": "/api/cron/delivery-retry", "schedule": "0 3 * * *" }
+    {
+      "path": "/api/cron/retention",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/delivery-retry",
+      "schedule": "0 3 * * *"
+    }
   ]
 }
