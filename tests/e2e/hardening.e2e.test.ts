@@ -176,6 +176,7 @@ describe('every API route refuses a stranger', () => {
       '/supervisor',
       '/admin',
       '/admin/officers',
+      '/admin/teams',
       '/admin/settings',
       '/admin/audit',
       '/new',
@@ -200,6 +201,8 @@ describe('the browser bundle', () => {
       appEnv.SUPABASE_SERVICE_ROLE_KEY,
       appEnv.PHONE_HASH_SECRET,
       appEnv.CRON_SECRET,
+      appEnv.COOKIE_SECRET,
+      'COOKIE_SECRET',
       'SUPABASE_SERVICE_ROLE_KEY',
       'PHONE_HASH_SECRET',
       'CRON_SECRET',
@@ -303,6 +306,7 @@ describe('server logs', () => {
       appEnv.SUPABASE_SERVICE_ROLE_KEY,
       appEnv.PHONE_HASH_SECRET,
       appEnv.CRON_SECRET,
+      appEnv.COOKIE_SECRET,
     ];
     for (const s of secrets) expect(logs, `logs contain ${s.slice(0, 6)}…`).not.toContain(s);
   }, 90_000);

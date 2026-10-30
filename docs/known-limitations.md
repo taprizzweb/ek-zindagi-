@@ -24,25 +24,26 @@ bundle, no personal data in server logs).
 
 No system can be promised unhackable, and this one has not had an independent security test. What it does:
 strict headers and a nonce-based content policy; sign-in with a per-address **and per-account** attempt limit;
-a second step (authenticator app) for supervisors and admins on every sign-in, where a code works only once;
-accounts that can be disabled at once; every write checked for a signed-in role and the same origin; every input validated
-and unknown fields refused; personal data kept in server-only columns and deleted within a day; an append-only audit log
+officers get in only through a long random team link that the admin can replace or switch off at once, and the admin signs in with a password; every write checked for a signed-in role and the same origin; every input validated
+and unknown fields refused; personal data kept in server-only columns and deleted the moment the message is sent; an append-only audit log
 with no personal data; no secrets in the browser; a test that fails if any API route stops refusing strangers; weekly
 dependency updates and a build that fails on a high-severity dependency issue.
 
 What it cannot stop, and you must handle by other means:
 
 - **Someone who gets the hosting or database accounts** (Vercel, Supabase, Meta). Protect those with their own two-step sign-in, at least two named owners, and no shared passwords.
-- **A stolen, unlocked officer phone.** The officer account works until an admin disables it (runbook section 4). Phones need a screen lock.
-- **Phishing and shoulder-surfing** of an officer's password. The second step covers supervisors and admins only: officers sign in with password alone (a deliberate choice, for speed in the field).
-- **Anyone with the certificate link** in bridge mode for 24 hours.
+- **A stolen, unlocked officer phone, or a leaked team link.** Whoever has the link can make and send certificates as that team until the admin makes a new link (runbook section 4). That is why links are per team, are never shown twice, and every send counts against a per-team rate limit. Phones need a screen lock.
+- **A link passed on by an officer** (to a friend, in a group). It works for whoever holds it. The damage is bounded (a certificate carrying the police logo can be made for any name and photo: that is a harassment and impersonation risk, which is why the link is a secret and revocable and not an open page). The admin dashboard shows each team's counts, so a team that suddenly sends far more than usual is visible.
+- **The admin password.** The admin panel (teams, settings, deletion requests) is protected by a password only: there is no second step. Use a long, unique password and keep the admin accounts to two or three named people.
+- **Anyone with a certificate link** in bridge mode (the fallback) for 24 hours.
 - **Mistakes by people:** a wrong number typed, a message to a person who should not receive it.
 - **Overload** (a flood of requests) beyond what the host's own protection and the rate limits absorb.
 - **Flaws not yet found** in this code or in the libraries and services it uses. Get an independent penetration test before a wide rollout, and fix what it finds.
 
 ## 2. Not built
 
-- **Recovery codes for the second step.** Supervisors and admins sign in with an authenticator-app code. If a supervisor loses the phone, an admin clears their set-up. If the **only admin** loses the phone, someone with the service-role key runs `npm run reset:mfa` (see the runbook). There are no printed backup codes.
+- **Per-person accountability.** Officers share a team link, so the system knows which team made an entry, not which officer. Per-person logins were dropped on purpose for speed in the field.
+- **A second sign-in step** for the admin. It was built and then removed (it was too much for the people using it).
 - **Phone OTP sign-in** for officers (deferred on purpose: SMS cost and registration).
 - **A rule for how long the non-personal records are kept.** Codes, violation, rounded location, officer and timestamps are kept with no automatic deletion. The audit log and opt-out hashes are meant to be permanent. Decide a period.
 - **An age check.** The form does not ask the person's age.

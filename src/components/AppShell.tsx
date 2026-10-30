@@ -27,7 +27,7 @@ export default function AppShell({
               {user.officerCode ? ` · ${user.officerCode}` : ''} · {ROLE_LABEL[user.role]}
             </p>
           </div>
-          <SignOutButton />
+          {user.viaLink ? null : <SignOutButton />}
         </div>
       </header>
       <main className={`mx-auto px-4 py-6 ${wide ? 'max-w-5xl' : 'max-w-xl'}`}>{children}</main>

@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAuditSink } from '@/lib/audit/audit-supabase';
 import { AppError } from '@/lib/errors';
+import { purgeSentEntry } from '@/lib/retention/retention-store-supabase';
 import { loadSettings } from '@/lib/settings/settings-store-supabase';
 import { serverEnv } from '@/lib/env';
 import { prepareBridgeDelivery } from './bridge';
@@ -49,6 +50,8 @@ export function createDeliveryProvider(admin: SupabaseClient, env: Env): Deliver
       mode: 'cloud_api',
       async send(i) {
         const r = await sendViaCloudApi(deps, i.entryId, i.actor, i.onlyOfficerId);
+        // The PDF is now in the person's chat: nothing about them is kept on our side.
+        await purgeSentEntry(admin, i.entryId);
         return { mode: 'cloud_api', status: r.status, alreadySent: r.alreadySent };
       },
     };

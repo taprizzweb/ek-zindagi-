@@ -1,11 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { ACTIVITY_COOKIE, activityCookieOptions } from '@/lib/auth/activity';
-import { MFA_COOKIE } from '@/lib/auth/mfa-crypto';
+import { TEAM_COOKIE, verifyTeamCookie } from '@/lib/auth/cookie-crypto';
 import { isSessionExpired, parseActivityCookie } from '@/lib/domain/session-expiry';
 import { authCookieOptions } from '@/lib/supabase/cookie-options';
 
-const PUBLIC_PATHS = new Set(['/login', '/robots.txt', '/api/auth/login', '/api/auth/logout']);
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/robots.txt',
+  '/manifest.webmanifest',
+  '/api/auth/login',
+  '/api/auth/logout',
+]);
 
 function contentSecurityPolicy(nonce: string): string {
   const dev = process.env.NODE_ENV === 'development';
@@ -61,6 +67,7 @@ export async function proxy(request: NextRequest) {
   // the address is the only credential (see src/app/c/[token]/route.ts), so there is no session to check.
   if (
     pathname.startsWith('/c/') ||
+    pathname.startsWith('/go/') ||
     pathname.startsWith('/api/webhooks/') ||
     pathname.startsWith('/api/cron/')
   ) {
@@ -69,6 +76,16 @@ export async function proxy(request: NextRequest) {
   }
   const isApi = pathname.startsWith('/api/');
   const isPublic = PUBLIC_PATHS.has(pathname);
+  // A team phone carries a signed cookie from its link; the page or route itself checks the team is still on.
+  const teamSecret = process.env.COOKIE_SECRET;
+  if (
+    !isPublic &&
+    teamSecret &&
+    verifyTeamCookie(request.cookies.get(TEAM_COOKIE)?.value, teamSecret)
+  ) {
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
+  }
   const { data } = await supabase.auth.getUser();
 
   const deny = (reason?: string) => {
@@ -77,7 +94,6 @@ export async function proxy(request: NextRequest) {
       : NextResponse.redirect(new URL(reason ? `/login?reason=${reason}` : '/login', request.url));
     for (const c of response.cookies.getAll()) res.cookies.set(c);
     res.cookies.delete(ACTIVITY_COOKIE);
-    res.cookies.delete(MFA_COOKIE);
     res.headers.set('Cache-Control', 'no-store');
     return res;
   };

@@ -22,8 +22,7 @@ certificate (PDF) and sends it to the person's WhatsApp number. Personal data is
 | 7. Hardening, docs, deploy                                    | done  |
 
 All seven milestones are built. **It has not been run against a real Supabase, a real WhatsApp account or a real
-phone.** Read `docs/known-limitations.md` first: it lists what is verified, what is not, what is not built (for example
-two-step sign-in), and what to confirm with a lawyer and the police.
+phone.** Read `docs/known-limitations.md` first: it lists what is verified, what is not, what is not built, and what to confirm with a lawyer and the police.
 
 | Document                     | For                                                                              |
 | ---------------------------- | -------------------------------------------------------------------------------- |
@@ -136,25 +135,27 @@ The date and time on the certificate is the **server's** time of record, not the
 
 ### Retention, supervisor and admin screens (milestone 6)
 
-- **Deleting personal data.** A job every 10 minutes (`/api/cron/retention`, see `vercel.json`) deletes the photo and
-  PDF files, **checks that they are gone**, and only then clears name, number and file paths in the
-  database. An entry is due when its expiry has passed (`RETENTION_HOURS` at creation, default 24) or
-  when WhatsApp confirmed delivery (cloud API mode) more than five minutes ago. A file that cannot be deleted keeps its entry, which is
-  tried again on the next run. The code, violation, area, officer code, timestamps and the phone **hash**
-  stay (the hash is only for the duplicate check and the opt-out list). Every run writes an audit entry
-  with counts, and a self-check reports anything overdue or left over; the supervisor screen turns red when
-  the job has not run for three hours.
-- **`MFA_SECRET` is required in production** (the server refuses to start without it): it encrypts the supervisors' and admins' authenticator secrets and signs the "second step passed" cookie.
+- **Nothing about a person is kept.** In cloud API mode, the moment WhatsApp accepts the message the server
+  deletes the PDF and the photo (and checks they are gone) and clears the name, the number and the number hash. What
+  stays is a row of **counts**: team, violation, area, time and status. A sweep every 10 minutes
+  (`/api/cron/retention`, see `vercel.json`) catches anything that missed, and entries that were never sent (a failure
+  waiting for a retry) are deleted when their expiry passes (24 hours by default). A file that cannot be deleted keeps
+  its entry, which is tried again on the next sweep. Every sweep writes an audit entry with counts, and a self-check
+  reports anything overdue or left over. Bridge mode keeps the PDF for its 24-hour link and is only a fallback.
+  Because the number hash goes too, a second certificate to the same number is **not** blocked; the only list kept is
+  the STOP list.
+- **`COOKIE_SECRET` is required in production** (the server refuses to start without it): it signs the cookie a team
+  phone gets from its link.
 - **`CRON_SECRET` is required in production** (the server refuses to start without it), because the job
   cannot run without it. Ten-minute and five-minute schedules need a Vercel plan that allows them; on a plan
   that does not, use Supabase `pg_cron` or an external scheduler to call the two `/api/cron/*` routes with
   the bearer secret.
-- **Supervisor screen:** pause or resume the campaign (one tap and a confirmation), counts for today and the
+- **Dashboard** (for the admin; supervisor accounts also get it): pause or resume the campaign (one tap and a confirmation), counts for today and the
   week by officer and by violation, CSV of the counts, failures with a readable reason and a **Retry**
   button (cloud API mode, and only while the PDF still exists; an unknown-outcome failure asks for
   confirmation first), the review list (gallery photo, typed location, consent not ticked, same number
   again) with "Mark reviewed", and the last deletion run.
-- **Admin screens:** officers (as before), **settings** (pause, gallery fallback, retention hours; each
+- **Admin screens:** **team links** (below), password accounts (optional), **settings** (pause, gallery fallback, retention hours; each
   change is audited), and the **audit log** with filters. Delivery mode, message language, branding and the
   duplicate window stay environment settings, shown read-only: changing them needs a redeploy on purpose.
 - **Pause** is either the `CAMPAIGN_PAUSED` environment variable (a hard switch the screen cannot undo)
@@ -162,14 +163,13 @@ The date and time on the certificate is the **server's** time of record, not the
 
 ### Hardening and requests from citizens (milestone 7)
 
-- **Second sign-in step for supervisors and admins.** After the password they enter the 6-digit code from an
-  authenticator app, every time they sign in. The first sign-in shows a QR code and sets the app up. The secret is
-  stored encrypted and bound to the account; a code works once (replay refused, atomically in the database); six wrong
-  codes in ten minutes lock the step for the rest of the window; the proof is a signed HttpOnly cookie tied to the
-  account and dropped at every sign-in, sign-out and timeout. Until the code is entered, every page goes to the code page
-  and every API answers 403. An admin clears a supervisor's set-up from Officer accounts; `npm run reset:mfa` clears
-  an admin's. Officers sign in with a password only. **Password guessing** is limited per address (20 per 15 minutes) and
-  per account (10 per 15 minutes).
+- **No logins for officers: team links.** The admin makes one link per station or team (Admin, Team links) and sends
+  it on WhatsApp. An officer opens it once in Chrome, taps the three dots, "Add to Home screen", and from then on the
+  phone has an "एक ज़िंदगी" icon that opens straight to the form (camera, GPS, certificate, send). There is no password and no
+  authenticator. The link is the credential: its hash is stored, the phone keeps a signed cookie for a year, and the admin
+  can **make a new link** (the old link and every phone that used it stop at once) or **switch the team off**. Wrong links get
+  nothing and guessing is rate-limited. Only the admin signs in with a password (10 tries per account per quarter hour).
+  The trade-off is in `docs/known-limitations.md`: a team link is shared, so the dashboard counts per team, not per person.
 - Messages (the WhatsApp text and the template's safety line) carry **Hindi and English together**; there is no language
   setting. The certificate itself is unchanged.
 

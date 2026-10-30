@@ -1,17 +1,21 @@
 import { violationByKey, type ViolationKey } from '@/config/violations';
 import { formatIst } from '@/lib/domain/time';
 import { statusLabel } from '@/lib/i18n/status';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * The signed-in user's own recent entries (status only, no personal data).
- * Read with the user's own session, so Row Level Security does the filtering.
+ * Only this account's own entries from the last 7 days, read on the server.
  */
-export default async function RecentEntries() {
-  const supabase = await createClient();
-  const { data } = await supabase
+const weekAgoIso = () => new Date(Date.now() - 7 * 86_400_000).toISOString();
+
+export default async function RecentEntries({ userId }: { userId: string }) {
+  // Read on the server for this one account (a team phone has no database session of its own).
+  const { data } = await createAdminClient()
     .from('entries')
     .select('id, cert_code, violation, status, delivery_mode, link_opened_at, created_at')
+    .eq('officer_id', userId)
+    .gte('created_at', weekAgoIso())
     .order('created_at', { ascending: false })
     .limit(20);
   const rows = (data ?? []) as {

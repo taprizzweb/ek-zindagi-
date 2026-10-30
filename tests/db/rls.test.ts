@@ -1236,7 +1236,7 @@ describe('retention, settings, review and counts (migration 6)', () => {
     await q(
       `insert into public.entries (id, cert_code, officer_id, violation, location_source, lat, lng, photo_source,
          gallery_reason, consent_checked, status, person_name, phone_e164, phone_hash, photo_path, pdf_path,
-         created_at, expires_at, sent_at, delivered_at, area_name)
+         created_at, expires_at, sent_at, delivered_at, area_name, delivery_mode)
        values ($1::uuid, 'EKZ-R-' || substr(md5($1::text), 1, 8), $2, 'helmet', $3::public.location_source,
          case when $3 = 'gps' then 26.912 end, case when $3 = 'gps' then 75.787 end,
          $4::public.photo_source, case when $4 = 'gallery' then 'camera broken' end, $5::boolean,
@@ -1245,7 +1245,8 @@ describe('retention, settings, review and counts (migration 6)', () => {
          case when $8::boolean then $1::text || '.pdf' end,
          now() + coalesce($9::text, '-1 day')::interval, now() + coalesce($10::text, '24 hours')::interval,
          case when $11::text is null then null else now() + $11::text::interval end,
-         case when $12::text is null then null else now() + $12::text::interval end, 'Malviya Nagar')`,
+         case when $12::text is null then null else now() + $12::text::interval end, 'Malviya Nagar',
+         case when $6 in ('sent', 'delivered', 'read') then 'cloud_api' end)`,
       [
         id,
         over.officer ?? OFFICER1,
@@ -1276,11 +1277,19 @@ describe('retention, settings, review and counts (migration 6)', () => {
   const due = async () =>
     (await q('select id from public.due_for_purge(1000)')).rows.map((r) => r.id as string);
 
-  it('finds only what is due: expired, or delivered more than five minutes ago', async () => {
+  it('finds only what is due: expired, or sent through the cloud API more than two minutes ago', async () => {
     const fresh = await entry();
     const expired = await entry({ expires: '-1 minute', created: '-25 hours' });
-    const deliveredOld = await entry({ status: 'delivered', delivered: '-6 minutes' });
-    const deliveredNew = await entry({ status: 'delivered', delivered: '-2 minutes' });
+    const deliveredOld = await entry({
+      status: 'delivered',
+      sent: '-6 minutes',
+      delivered: '-5 minutes',
+    });
+    const deliveredNew = await entry({
+      status: 'delivered',
+      sent: '-30 seconds',
+      delivered: '-10 seconds',
+    });
     const sendingExpired = await entry({ status: 'sending', expires: '-5 minutes' });
     const sendingLongExpired = await entry({ status: 'sending', expires: '-2 hours' });
     const ids = await svc(due);
@@ -1290,7 +1299,7 @@ describe('retention, settings, review and counts (migration 6)', () => {
     for (const not of [fresh, deliveredNew, sendingExpired]) expect(ids).not.toContain(not);
   });
 
-  it('clears every personal field, keeps the hash, code and counts, and removes the links', async () => {
+  it('clears every personal field and the number hash, keeps the code and the counts, and removes the links', async () => {
     const id = await entry({ expires: '-1 hour', photoSource: 'camera' });
     await q(
       `insert into public.cert_links (entry_id, token_hash, expires_at)
@@ -1306,7 +1315,7 @@ describe('retention, settings, review and counts (migration 6)', () => {
       other_text: null,
       photo_path: null,
       pdf_path: null,
-      phone_hash: HASH,
+      phone_hash: null,
       area_name: 'Malviya Nagar',
     });
     expect(r.purged_at).not.toBeNull();
@@ -1537,79 +1546,128 @@ describe('data requests (migration 7)', () => {
   });
 });
 
-describe('second sign-in step (migration 8)', () => {
+describe('team links and sending without keeping anything (migration 10)', () => {
   const sup = SUPERVISOR;
+  const TEAM = OFFICER2;
   afterEach(async () => {
-    await q('delete from public.totp_factors');
+    await q('delete from public.access_links');
+    await q(`delete from public.entries where id::text like '82000000-%'`);
   });
+  const sha = (x: string) => `encode(sha256(convert_to('${x}', 'UTF8')), 'hex')`;
 
-  it('accepts a time step only once, and only a higher one, atomically', async () => {
-    await q(`insert into public.totp_factors (profile_id, secret_enc) values ($1, 'v1.a.b.c')`, [
-      sup,
-    ]);
-    const accept = async (c: number) =>
-      (await q('select public.totp_accept($1, $2) as ok', [sup, c])).rows[0].ok as boolean;
-    expect(await accept(100)).toBe(true);
-    expect(await accept(100)).toBe(false); // the same code again
-    expect(await accept(99)).toBe(false); // an older one
-    expect(await accept(101)).toBe(true);
-
-    // eight simultaneous tries with the same step: exactly one wins
-    const clients = await Promise.all(
-      Array.from({ length: 8 }, async () => {
-        const c = new pg.Client({ connectionString: inject('dbUrl') });
-        await c.connect();
-        return c;
-      }),
+  it('opens a link: the team and the link version, and records the use; unknown or switched-off links', async () => {
+    await q(
+      `insert into public.access_links (profile_id, token_hash) values ($1, ${sha('good')})`,
+      [TEAM],
     );
-    try {
-      const results = await Promise.all(
-        clients.map(
-          async (c) =>
-            (await c.query('select public.totp_accept($1, 500) as ok', [sup])).rows[0].ok,
-        ),
+    const open = async (t: string) =>
+      as(
+        'service_role',
+        null,
+        async () => (await q(`select * from public.open_team_link(${sha(t)})`)).rows,
       );
-      expect(results.filter(Boolean)).toHaveLength(1);
+    const row = (await open('good'))[0];
+    expect(row).toMatchObject({ profile_id: TEAM, active: true });
+    expect(row.rotated_at).toBeInstanceOf(Date);
+    expect(await open('nope')).toEqual([]);
+    await q('update public.profiles set active = false where id = $1', [TEAM]);
+    try {
+      expect((await open('good'))[0]).toMatchObject({ active: false });
     } finally {
-      await Promise.all(clients.map((c) => c.end()));
+      await q('update public.profiles set active = true where id = $1', [TEAM]);
     }
   });
 
-  it('only the server can read or use the secrets table', async () => {
-    await q(`insert into public.totp_factors (profile_id, secret_enc) values ($1, 'v1.a.b.c')`, [
-      sup,
+  it('records last use only for an active team', async () => {
+    await q(`insert into public.access_links (profile_id, token_hash) values ($1, ${sha('g2')})`, [
+      TEAM,
+    ]);
+    await q(`select * from public.open_team_link(${sha('g2')})`);
+    expect(
+      (await q('select last_used_at from public.access_links where profile_id = $1', [TEAM]))
+        .rows[0].last_used_at,
+    ).not.toBeNull();
+  });
+
+  it('only the server can read links or open them; one link per team; hashes only', async () => {
+    await q(`insert into public.access_links (profile_id, token_hash) values ($1, ${sha('g3')})`, [
+      TEAM,
     ]);
     for (const [role, uid] of [
       ['authenticated', ADMIN],
       ['authenticated', SUPERVISOR],
       ['anon', null],
     ] as const) {
-      await as(role, uid, () => denied(q('select * from public.totp_factors')));
-      await as(role, uid, () => denied(q('select public.totp_accept($1, 1)', [sup])));
-      await as(role, uid, () => denied(q(`delete from public.totp_factors`)));
+      await as(role, uid, () => denied(q('select * from public.access_links')));
+      await as(role, uid, () =>
+        denied(q(`select * from public.open_team_link('${'a'.repeat(64)}')`)),
+      );
     }
-    expect(
+    await denied(
+      q(`insert into public.access_links (profile_id, token_hash) values ($1, ${sha('other')})`, [
+        TEAM,
+      ]),
+      /access_links_pkey/,
+    );
+    await denied(
+      q(`insert into public.access_links (profile_id, token_hash) values ($1, 'not-a-hash')`, [
+        sup,
+      ]),
+      /token_hash/,
+    );
+  });
+
+  it('the second sign-in table is gone', async () => {
+    expect((await q(`select to_regclass('public.totp_factors') as t`)).rows[0].t).toBeNull();
+  });
+
+  it('a purge also forgets the number hash (counts, code, violation and area stay)', async () => {
+    const id = '82000000-0000-4000-8000-000000000001';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, person_name, phone_e164, phone_hash, pdf_path, area_name, delivery_mode, sent_at)
+       values ($1, 'EKZ-J-PURGE01', $2, 'helmet', 'manual', 'sent', 'Ravi Kumar', '+919876543210', $3, 'x.pdf', 'Sindhi Camp', 'cloud_api', now() - interval '5 minutes')`,
+      [id, TEAM, HASH],
+    );
+    await q('select public.finish_purge($1::uuid[])', [[id]]);
+    const r = (await q('select * from public.entries where id = $1', [id])).rows[0];
+    expect(r).toMatchObject({
+      person_name: null,
+      phone_e164: null,
+      phone_hash: null,
+      pdf_path: null,
+      area_name: 'Sindhi Camp',
+      violation: 'helmet',
+      status: 'sent',
+    });
+    expect(r.purged_at).not.toBeNull();
+  });
+
+  it('bridge entries keep their PDF for the link: only cloud API sends are swept after two minutes', async () => {
+    const mk = async (n: number, mode: string | null) => {
+      const id = `82000000-0000-4000-8000-00000000010${n}`;
+      await q(
+        `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, person_name, phone_e164, pdf_path, delivery_mode, sent_at, expires_at)
+         values ($1, 'EKZ-J-SWEEP0' || $4::text, $2, 'helmet', 'manual', 'sent', 'A B', '+919876543210', 'x.pdf', $3, now() - interval '10 minutes', now() + interval '20 hours')`,
+        [id, TEAM, mode, n],
+      );
+      return id;
+    };
+    const cloud = await mk(1, 'cloud_api');
+    const bridge = await mk(2, 'bridge');
+    const due = (
       await as(
         'service_role',
         null,
-        async () => (await q('select count(*)::int as n from public.totp_factors')).rows[0].n,
-      ),
-    ).toBe(1);
-  });
-
-  it('refuses a secret that is not stored encrypted, and goes away with the account', async () => {
-    await denied(
-      q(
-        `insert into public.totp_factors (profile_id, secret_enc) values ($1, 'JBSWY3DPEHPK3PXP')`,
-        [sup],
-      ),
-      /secret_enc/,
-    );
+        async () => (await q('select id from public.due_for_purge(1000)')).rows,
+      )
+    ).map((r) => r.id);
+    expect(due).toContain(cloud);
+    expect(due).not.toContain(bridge);
   });
 
   it('accepts the new audit actions', async () => {
     await q(
-      `insert into public.audit_log (action, meta) values ('mfa_enrolled', '{}'), ('mfa_verified', '{}'), ('mfa_failed', '{}'), ('mfa_reset', '{}')`,
+      `insert into public.audit_log (action, meta) values ('team_created', '{}'), ('team_link_changed', '{}')`,
     );
   });
 });

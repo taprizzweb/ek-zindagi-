@@ -1,8 +1,6 @@
 import { resetOfficerPassword, setOfficerActive } from '@/lib/admin/officers';
 import { supabaseOfficerStore } from '@/lib/admin/officer-store-supabase';
 import { supabaseAuditSink } from '@/lib/audit/audit-supabase';
-import { resetMfa } from '@/lib/auth/mfa';
-import { supabaseMfaPorts } from '@/lib/auth/mfa-store-supabase';
 import { requireApiUser } from '@/lib/auth/session';
 import { AppError } from '@/lib/errors';
 import { handle, json, readJson } from '@/lib/http';
@@ -20,12 +18,6 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     const admin = createAdminClient();
     const deps = { store: supabaseOfficerStore(admin), audit: supabaseAuditSink(admin) };
 
-    if (action === 'reset_mfa') {
-      const target = await deps.store.getProfile(parsedId.data);
-      if (!target) throw new AppError('not_found', 404);
-      await resetMfa({ ports: supabaseMfaPorts(admin), audit: deps.audit }, actor, target);
-      return json({ ok: true });
-    }
     if (action === 'reset_password') {
       const { tempPassword } = await resetOfficerPassword(deps, actor, parsedId.data);
       return json({ tempPassword });

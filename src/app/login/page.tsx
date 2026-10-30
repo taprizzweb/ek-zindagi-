@@ -15,7 +15,7 @@ export default async function LoginPage({
   return (
     <main className="mx-auto max-w-md px-4 py-10">
       <h1 className="text-2xl font-semibold">EK ZINDAGI</h1>
-      <p className="mb-6 text-muted">लॉगिन / Log in</p>
+      <p className="mb-6 text-muted">एडमिन लॉगिन / Admin log in</p>
       {reason === 'timeout' ? (
         <div className="mb-4">
           <NoticeBox
@@ -26,6 +26,19 @@ export default async function LoginPage({
           />
         </div>
       ) : null}
+      {reason === 'link' ? (
+        <div className="mb-4">
+          <NoticeBox
+            message={{
+              hi: 'यह लिंक चालू नहीं है। अपने थाने के एडमिन से नया लिंक माँगें।',
+              en: 'This link is not active. Ask your admin for a new link.',
+            }}
+          />
+        </div>
+      ) : null}
+      <p className="mb-4 text-sm text-muted">
+        पुलिसकर्मी: लॉगिन नहीं, अपना टीम लिंक खोलें। / Officers: no login, open your team link.
+      </p>
       <LoginForm />
     </main>
   );

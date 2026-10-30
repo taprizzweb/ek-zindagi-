@@ -89,7 +89,7 @@ function CountTable({
 }
 
 export default async function SupervisorHome() {
-  const user = await requirePageUser({ roles: ['supervisor'] });
+  const user = await requirePageUser({ roles: ['supervisor', 'admin'] });
   const admin = createAdminClient();
   const now = new Date();
   const today = rangeFor('today', now);
@@ -114,16 +114,25 @@ export default async function SupervisorHome() {
 
   return (
     <AppShell user={user} wide>
-      <h1 className="text-2xl font-semibold">पर्यवेक्षक खाता / Supervisor account</h1>
+      <h1 className="text-2xl font-semibold">डैशबोर्ड / Dashboard</h1>
       <p className="mt-1 text-muted">
         {user.displayName} · {user.officerCode}
       </p>
-      <Link
-        href="/new"
-        className="mt-4 flex min-h-14 items-center justify-center rounded border-2 border-accent bg-accent px-4 text-lg font-semibold text-white hover:bg-accent-dark sm:max-w-sm"
-      >
-        नई प्रविष्टि / New entry
-      </Link>
+      {user.role === 'admin' ? (
+        <Link
+          href="/admin"
+          className="mt-2 inline-flex min-h-11 items-center text-accent underline"
+        >
+          ← एडमिन / Admin
+        </Link>
+      ) : (
+        <Link
+          href="/new"
+          className="mt-4 flex min-h-14 items-center justify-center rounded border-2 border-accent bg-accent px-4 text-lg font-semibold text-white hover:bg-accent-dark sm:max-w-sm"
+        >
+          नई प्रविष्टि / New entry
+        </Link>
+      )}
 
       <div className="mt-8 space-y-8">
         <PauseControl
@@ -280,7 +289,7 @@ export default async function SupervisorHome() {
           </p>
         </section>
 
-        <RecentEntries />
+        {user.role === 'admin' ? null : <RecentEntries userId={user.id} />}
       </div>
     </AppShell>
   );

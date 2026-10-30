@@ -21,7 +21,7 @@ document, and no harm has happened to you.
 
 **Your photo is optional.** You can say no and still get a certificate. If you agree, the photo is used only on your certificate.
 
-**How long we keep it:** your name, number, photo and certificate are deleted from our system within [24] hours, or sooner.
+**How long we keep it:** your name, number, photo and certificate are deleted from our system as soon as the message has been sent to your WhatsApp (within [24] hours at the latest if sending fails).
 After that we keep only counts and codes that cannot tell who you are. If you say STOP, we keep a scrambled form of your number
 so that we never message you again.
 
@@ -51,7 +51,7 @@ record, court or challan system.
 
 **फ़ोटो देना ज़रूरी नहीं है।** आप मना कर सकते हैं, फिर भी प्रमाणपत्र मिलेगा। सहमति देने पर फ़ोटो सिर्फ़ आपके प्रमाणपत्र पर लगती है।
 
-**कितने समय रखते हैं:** आपका नाम, नंबर, फ़ोटो और प्रमाणपत्र हमारे सिस्टम से [24] घंटे के भीतर, या उससे पहले, हटा दिए जाते हैं। इसके बाद हम केवल गिनती और कोड रखते हैं, जिनसे आपकी पहचान नहीं होती। अगर आप STOP लिखते हैं तो आपके नंबर का एक बदला हुआ रूप रखा जाता है, ताकि आपको दोबारा संदेश न जाए।
+**कितने समय रखते हैं:** आपका नाम, नंबर, फ़ोटो और प्रमाणपत्र संदेश आपके WhatsApp पर भेजते ही हमारे सिस्टम से हटा दिए जाते हैं (भेजना विफल हो तो अधिकतम [24] घंटे में)। इसके बाद हम केवल गिनती और कोड रखते हैं, जिनसे आपकी पहचान नहीं होती। अगर आप STOP लिखते हैं तो आपके नंबर का एक बदला हुआ रूप रखा जाता है, ताकि आपको दोबारा संदेश न जाए।
 
 **कौन देखता है:** आपसे मिलने वाला अधिकारी, हमारा सिस्टम और व्हाट्सऐप (संदेश पहुँचाने के लिए)। यह किसी और को नहीं दिया जाता और किसी पुलिस रिकॉर्ड, अदालत या चालान प्रणाली में नहीं भेजा जाता।
 

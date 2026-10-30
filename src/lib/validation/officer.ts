@@ -9,7 +9,7 @@ export const createOfficerSchema = z.strictObject({
 });
 
 export const updateOfficerSchema = z.strictObject({
-  action: z.enum(['disable', 'enable', 'reset_password', 'reset_mfa']),
+  action: z.enum(['disable', 'enable', 'reset_password']),
 });
 
 export const uuidSchema = z.uuid();

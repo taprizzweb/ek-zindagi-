@@ -5,7 +5,9 @@
  */
 import { randomBytes } from 'node:crypto';
 
-for (const name of ['PHONE_HASH_SECRET', 'CRON_SECRET', 'MFA_SECRET']) {
+for (const name of ['PHONE_HASH_SECRET', 'CRON_SECRET', 'COOKIE_SECRET']) {
   console.log(`${name}=${randomBytes(32).toString('hex')}`);
 }
-console.log('\nPHONE_HASH_SECRET and MFA_SECRET must never change later (see docs/runbook.md).');
+console.log(
+  '\nPHONE_HASH_SECRET must never change later (see docs/runbook.md). Changing COOKIE_SECRET signs every team phone out until it opens its link again.',
+);

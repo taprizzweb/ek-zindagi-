@@ -4,7 +4,6 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
 import { APP_PORT, APP_URL, FAKE_SUPABASE_PORT, appEnv } from './env';
 import { ADMIN, OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
-import { currentCode, seedMfa } from './mfa-helpers';
 
 /**
  * Supervisor and admin screens, the kill switch and the retention job, in a real browser against the
@@ -65,13 +64,6 @@ async function signIn(who: Who, home: string): Promise<Page> {
   await page.fill('#email', who.email);
   await page.fill('#password', who.password);
   await page.getByRole('button', { name: /Log in/ }).click();
-  if (who !== OFFICER) {
-    // Supervisors and admins pass the second step with the code from their authenticator app.
-    seedMfa(fake, who.id);
-    await page.waitForURL('**/mfa');
-    await page.fill('#code', currentCode(fake, who.id));
-    await page.getByRole('button', { name: /Verify/ }).click();
-  }
   await page.waitForURL(`**${home}`);
   return page;
 }

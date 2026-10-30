@@ -2,7 +2,6 @@ import { cookies } from 'next/headers';
 import { supabaseAuditSink } from '@/lib/audit/audit-supabase';
 import { createHash } from 'node:crypto';
 import { ACTIVITY_COOKIE, activityCookieOptions } from '@/lib/auth/activity';
-import { MFA_COOKIE, mfaCookieOptions } from '@/lib/auth/mfa-crypto';
 import { homePathFor, type Role } from '@/lib/domain/roles';
 import { serverEnv } from '@/lib/env';
 import { AppError } from '@/lib/errors';
@@ -70,8 +69,6 @@ export async function POST(request: Request) {
 
     await audit.record({ action: 'login', actorId: data.user.id, actorCode: profile.officer_code });
     (await cookies()).set(ACTIVITY_COOKIE, String(Date.now()), activityCookieOptions());
-    // A new sign-in always needs the second step again: expire any earlier proof.
-    (await cookies()).set(MFA_COOKIE, '', { ...mfaCookieOptions(), maxAge: 0 });
     return json({
       redirect: profile.must_change_password ? '/change-password' : homePathFor(profile.role),
     });

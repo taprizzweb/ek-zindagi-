@@ -4,7 +4,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { startFakeWhatsApp, type FakeWhatsApp, metaError } from '../integration/fake-whatsapp';
 import { FAKE_SUPABASE_PORT, appEnv } from './env';
 import { OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
-import { currentCode, seedMfa } from './mfa-helpers';
 
 /**
  * The real app in cloud_api mode (production build), talking to the fake Supabase and the fake
@@ -44,28 +43,10 @@ async function login(
     body: JSON.stringify({ email: who.email, password: who.password }),
   });
   expect([res.status, await res.clone().text()]).toEqual([200, expect.any(String)]);
-  const jar = new Map<string, string>();
-  const take = (r: Response) => {
-    for (const c of r.headers.getSetCookie()) {
-      const [pair] = c.split(';');
-      const i = pair!.indexOf('=');
-      jar.set(pair!.slice(0, i), pair!.slice(i + 1));
-    }
-  };
-  take(res);
-  const header = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
-  if (who !== OFFICER) {
-    // Supervisors pass the second step with the code from their authenticator app.
-    seedMfa(fake, who.id);
-    const mfa = await fetch(`${URL_}/api/auth/mfa`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: URL_, cookie: header() },
-      body: JSON.stringify({ code: currentCode(fake, who.id) }),
-    });
-    expect(mfa.status).toBe(200);
-    take(mfa);
-  }
-  return header();
+  return res.headers
+    .getSetCookie()
+    .map((c) => c.split(';')[0])
+    .join('; ');
 }
 
 function seedEntry(over: Record<string, unknown> = {}) {
@@ -96,6 +77,7 @@ function seedEntry(over: Record<string, unknown> = {}) {
   return id;
 }
 
+const id0 = () => crypto.randomUUID();
 const send = (id: string) =>
   fetch(`${URL_}/api/entries/${id}/send`, {
     method: 'POST',
@@ -196,6 +178,29 @@ describe('send (cloud_api)', () => {
     const again = await send(id);
     expect(await again.json()).toMatchObject({ alreadySent: true });
     expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
+  });
+
+  it('keeps nothing about the person once WhatsApp has accepted it: only a row of counts remains', async () => {
+    const id = seedEntry({ photo_path: `${OFFICER.id}/${id0()}.jpg` });
+    fake.state.uploads.push({ path: String(entry(id).photo_path), bytes: Buffer.from('x') });
+    expect((await send(id)).status).toBe(200);
+    expect(entry(id)).toMatchObject({
+      status: 'sent',
+      person_name: null,
+      phone_e164: null,
+      phone_hash: null,
+      pdf_path: null,
+      photo_path: null,
+      violation: 'helmet',
+      area_name: 'Malviya Nagar',
+    });
+    expect(entry(id).purged_at).toBeTruthy();
+    expect(fake.state.pdfs).toEqual([]);
+    expect(fake.state.uploads).toEqual([]);
+    // a second tap is a repeat, not an error
+    expect(await (await send(id)).json()).toMatchObject({ alreadySent: true });
+    expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
+    expect(JSON.stringify(fake.state.audit)).not.toMatch(/Ravi|9876543210/);
   });
 
   it('five taps at once produce one message', async () => {

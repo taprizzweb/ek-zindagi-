@@ -14,7 +14,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 ## 1. Supabase
 
 1. Create a project in the **Mumbai (ap-south-1)** region. Save the database password in a password manager.
-2. Apply the migrations in `supabase/migrations`, **in file order** (eight files, `…0001_init.sql` to `…0008_mfa.sql`; run them one at a time and stop at the first error). Either with the CLI (`supabase link --project-ref <ref>` then `supabase db push`) or by pasting each file into the SQL editor and running it.
+2. Apply the migrations in `supabase/migrations`, **in file order** (ten files, `…0001_init.sql` to `…0010_team_links.sql`; run them one at a time and stop at the first error). Either with the CLI (`supabase link --project-ref <ref>` then `supabase db push`) or by pasting each file into the SQL editor and running it.
 3. **Check it** (the migrations only help if they all went in): paste `supabase/verify.sql` into the SQL editor and run it. A healthy setup shows one row, `ok | nothing wrong found`. Any other row names a problem (a table without row level security, a public bucket, a browser role that can read personal data, a missing migration): fix it before going on. The same check can be run again at any time.
 4. Check Storage: two **private** buckets, `photos` and `pdfs`, exist (the first migration creates them). Neither may be public.
 5. Authentication: turn **off** "Allow new users to sign up" and email confirmation does not matter (accounts are created by an admin). Set the JWT expiry to 1 hour or less.
@@ -34,7 +34,7 @@ project by the developer: the first deploy is also the first real test. Follow t
    | `APP_BASE_URL`                  | the public https address, no trailing slash                                                 |
    | `CRON_SECRET`                   | random, 32+ characters. Required: the server will not start without it                      |
 
-| `MFA_SECRET` | random, 32+ characters (`openssl rand -hex 32`). Required: encrypts supervisors' and admins' authenticator secrets. Keep a copy in the password manager: losing it means everyone sets the app up again |
+| `COOKIE_SECRET` | random, 32+ characters (`openssl rand -hex 32`). Required: signs the cookie a team phone gets from its link. Changing it signs every team phone out until it opens its link again |
 | `DELIVERY_MODE` | `bridge` to start |
 | `SHOW_POLICE_BRANDING` | `true` only with written permission, otherwise `false` |
 
@@ -55,15 +55,16 @@ Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAG
 
    It refuses to run if an admin already exists. Remove the key from `.env.local` afterwards.
 
-2. Log in at `/login`. As an admin you are asked to set up an authenticator app first: scan the QR code with Google Authenticator, Microsoft Authenticator or similar, and type the 6-digit code. Do this on the admin's own phone and keep the phone safe. Then open **Officer accounts**, create the officers and one supervisor. Each gets a one-time temporary password and must change it at the first login. Hand it over in person or by a channel you trust.
+2. Log in at `/login` as the admin (password only). Open **Team links**, make a link for each station or team, and send each link to that team on WhatsApp (the screen has a share button with the install steps). An officer opens the link in Chrome, taps the three dots, **Add to Home screen**, and the form opens from an "एक ज़िंदगी" icon from then on: no password, no sign-in. If a link leaks or a phone is lost, make a new link for that team (the old one stops at once).
 
 ## 4. Smoke test (before any officer uses it)
 
 Do all of this on production with test data, then use **Requests from citizens** to delete what you made.
 
 - [ ] `/login` works; a wrong password is refused; the session ends after `INACTIVITY_MINUTES`.
-- [ ] An officer cannot open `/supervisor` or `/admin`.
-- [ ] A supervisor is asked for the authenticator code at every sign-in; the same code a second time is refused; **Reset security code** (admin) works.
+- [ ] An officer (team phone) cannot open `/admin`.
+- [ ] A team link opens the form on a real phone, "Add to Home screen" works, and the icon opens the form directly; **New link** stops the old link and the phone that used it.
+- [ ] After a test send the entry shows only counts (no name, number or PDF) on the dashboard.
 - [ ] Create an entry with your own number and a photo; the preview, the PDF and the image download look right.
 - [ ] Send: bridge mode opens WhatsApp with a link; the link shows the PDF and stops working after 24 hours (or check the expiry).
 - [ ] Supervisor: counts update, review list shows a gallery entry, **Pause campaign** stops a send, **Resume** restores it.

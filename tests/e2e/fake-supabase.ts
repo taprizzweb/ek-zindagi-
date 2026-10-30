@@ -39,7 +39,7 @@ export interface FakeState {
   optOuts: string[];
   audit: Row[];
   settings: Row[];
-  totp: Row[];
+  accessLinks: Row[];
   rate: Record<string, number>;
   uploads: { path: string; bytes: Buffer }[];
   pdfs: { path: string; bytes: Buffer }[];
@@ -119,7 +119,7 @@ export function freshState(): FakeState {
     optOuts: [],
     audit: [],
     settings: [],
-    totp: [],
+    accessLinks: [],
     rate: {},
     uploads: [],
     pdfs: [],
@@ -192,41 +192,89 @@ export async function startFakeSupabase(
     if (path === '/auth/v1/logout') return send(204);
 
     // ---- PostgREST
+    // Team links (migration 10) and the admin calls the team screen makes (mirrors Supabase Auth / PostgREST).
+    if (path === '/rest/v1/rpc/open_team_link') {
+      const { p_token_hash } = JSON.parse(body.toString()) as { p_token_hash: string };
+      const l = st.accessLinks.find((x) => x.token_hash === p_token_hash);
+      if (!l) return send(200, []);
+      const p = st.profiles.find((x) => x.id === l.profile_id);
+      if (p?.active) l.last_used_at = new Date().toISOString();
+      return send(200, [
+        { profile_id: l.profile_id, active: Boolean(p?.active), rotated_at: l.rotated_at },
+      ]);
+    }
+    if (path === '/rest/v1/access_links') {
+      if (method === 'POST') {
+        const row = JSON.parse(body.toString()) as Row;
+        const i = st.accessLinks.findIndex((r) => r.profile_id === row.profile_id);
+        const merged = {
+          created_at: new Date().toISOString(),
+          last_used_at: null,
+          ...(i >= 0 ? st.accessLinks[i] : {}),
+          ...row,
+        };
+        if (i >= 0) st.accessLinks[i] = merged;
+        else st.accessLinks.push(merged);
+        return send(201);
+      }
+      return send(
+        200,
+        st.accessLinks.filter((r) => matches(r, url.searchParams)),
+      );
+    }
+    if (path === '/auth/v1/admin/users' && method === 'POST') {
+      const { email } = JSON.parse(body.toString()) as { email: string };
+      const id = crypto.randomUUID();
+      return send(200, {
+        id,
+        aud: 'authenticated',
+        role: 'authenticated',
+        email,
+        app_metadata: {},
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      });
+    }
+    if (/^\/auth\/v1\/admin\/users\/[^/]+$/.test(path)) {
+      if (method === 'DELETE') return send(200, {});
+      return send(200, {
+        id: path.split('/').pop(),
+        aud: 'authenticated',
+        role: 'authenticated',
+        app_metadata: {},
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+      });
+    }
+    if (path === '/rest/v1/rpc/revoke_user_sessions') return send(200, null);
+    if (path === '/rest/v1/profiles' && method === 'POST') {
+      const row = JSON.parse(body.toString()) as Row;
+      const n = st.profiles.filter((r) => r.role !== 'admin').length + 1;
+      const profile = {
+        active: true,
+        must_change_password: true,
+        officer_code: `JP-${String(n).padStart(4, '0')}`,
+        ...row,
+      };
+      st.profiles.push(profile);
+      const wantsObject = String(req.headers.accept ?? '').includes('pgrst.object');
+      return send(
+        201,
+        wantsObject
+          ? { officer_code: profile.officer_code }
+          : [{ officer_code: profile.officer_code }],
+      );
+    }
+    if (path === '/rest/v1/profiles' && method === 'PATCH') {
+      for (const r of st.profiles.filter((x) => matches(x, url.searchParams)))
+        Object.assign(r, JSON.parse(body.toString()) as Row);
+      return send(204);
+    }
     if (path === '/rest/v1/rpc/rate_limit_hit') {
       // Counts hits per key (the window is not modelled: a test lasts seconds) and refuses above the maximum.
       const a = JSON.parse(body.toString()) as { p_key: string; p_max_hits: number };
       st.rate[a.p_key] = (st.rate[a.p_key] ?? 0) + 1;
       return send(200, st.rate[a.p_key]! <= a.p_max_hits);
-    }
-    if (path === '/rest/v1/rpc/totp_accept') {
-      const { p_profile, p_counter } = JSON.parse(body.toString()) as {
-        p_profile: string;
-        p_counter: number;
-      };
-      const f = st.totp.find((r) => r.profile_id === p_profile);
-      if (!f || Number(f.last_counter) >= p_counter) return send(200, false);
-      f.last_counter = p_counter;
-      return send(200, true);
-    }
-    if (path === '/rest/v1/totp_factors') {
-      if (method === 'POST') {
-        const row = JSON.parse(body.toString()) as Row;
-        const i = st.totp.findIndex((r) => r.profile_id === row.profile_id);
-        const ignore = String(req.headers.prefer ?? '').includes('ignore-duplicates');
-        if (i >= 0 && !ignore) Object.assign(st.totp[i]!, row);
-        else if (i < 0) st.totp.push({ confirmed: false, last_counter: 0, ...row });
-        return send(201);
-      }
-      const rows = st.totp.filter((r) => matches(r, url.searchParams));
-      if (method === 'PATCH') {
-        for (const r of rows) Object.assign(r, JSON.parse(body.toString()) as Row);
-        return send(204);
-      }
-      if (method === 'DELETE') {
-        st.totp = st.totp.filter((r) => !rows.includes(r));
-        return send(204);
-      }
-      return send(200, rows);
     }
     if (path === '/rest/v1/rpc/open_certificate_link') {
       // Mirrors public.open_certificate_link in the migration (tested for real in tests/db).
@@ -416,6 +464,7 @@ export async function startFakeSupabase(
           other_text: null,
           photo_path: null,
           pdf_path: null,
+          phone_hash: null,
           purged_at: new Date().toISOString(),
         });
         n++;

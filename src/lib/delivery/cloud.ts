@@ -191,6 +191,9 @@ export async function sendViaCloudApi(
   const entry = await deps.ports.loadForSend(entryId);
   if (!entry || (onlyOfficerId && entry.officerId !== onlyOfficerId))
     throw new AppError('not_found', 404);
+  // Already sent, and our copy of the person's data is gone by design: this is a repeat tap, not an error.
+  if (entry.purged && ['sent', 'delivered', 'read'].includes(entry.status))
+    return { status: entry.status, alreadySent: true };
   if (entry.purged) throw new AppError('gone', 410);
   if (entry.phoneHash && (await deps.ports.isOptedOut(entry.phoneHash)))
     throw new AppError('opted_out', 409);

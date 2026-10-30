@@ -88,3 +88,21 @@ export function supabaseOfficerStore(admin: SupabaseClient): OfficerStore {
     },
   };
 }
+
+import type { TeamStore } from './teams';
+
+/** The officer store plus where a team's link lives. */
+export function supabaseTeamStore(admin: SupabaseClient): TeamStore {
+  return {
+    ...supabaseOfficerStore(admin),
+    async saveLink(profileId, tokenHash) {
+      const { error } = await admin
+        .from('access_links')
+        .upsert(
+          { profile_id: profileId, token_hash: tokenHash, rotated_at: new Date().toISOString() },
+          { onConflict: 'profile_id' },
+        );
+      if (error) fail();
+    },
+  };
+}

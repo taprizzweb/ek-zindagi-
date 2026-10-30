@@ -17,7 +17,7 @@ export default async function OfficerHome() {
       >
         नई प्रविष्टि / New entry
       </Link>
-      <RecentEntries />
+      <RecentEntries userId={user.id} />
     </AppShell>
   );
 }

@@ -28,8 +28,8 @@ const serverObject = z.object({
     .transform((v) => v === 'true'),
   DELIVERY_RETRY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
   CRON_SECRET: z.string().min(32).optional(),
-  /** Encrypts the second-step secrets and signs the "second step passed" cookie. Required in production. */
-  MFA_SECRET: z.string().min(32).optional(),
+  /** Signs the cookie a team's phone gets from its link. Required in production. */
+  COOKIE_SECRET: z.string().min(32).optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().min(5).optional(),
   WHATSAPP_TOKEN: z.string().min(10).optional(),
   WHATSAPP_APP_SECRET: z.string().min(10).optional(),
@@ -66,11 +66,11 @@ export function publicEnv() {
  * CRON_SECRET: without it the scheduler cannot call the retention job, and personal data would not be deleted.
  */
 const serverSchema = serverObject.superRefine((v, ctx) => {
-  if (process.env.NODE_ENV === 'production' && !v.MFA_SECRET)
+  if (process.env.NODE_ENV === 'production' && !v.COOKIE_SECRET)
     ctx.addIssue({
       code: 'custom',
-      path: ['MFA_SECRET'],
-      message: 'required in production (supervisors and admins sign in with a second step)',
+      path: ['COOKIE_SECRET'],
+      message: 'required in production (it signs the cookie a team phone gets from its link)',
     });
   if (process.env.NODE_ENV === 'production' && !v.CRON_SECRET)
     ctx.addIssue({

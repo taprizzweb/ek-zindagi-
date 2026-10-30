@@ -31,6 +31,4 @@ export type ErrorCode =
   | 'gallery_disabled'
   | 'duplicate_recent'
   | 'opted_out'
-  | 'mfa_required'
-  | 'invalid_code'
   | 'internal';
