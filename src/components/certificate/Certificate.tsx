@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- logos are inline data: URIs; this component also renders to static HTML for the PDF, where next/image is not available */
 import { CERTIFICATE_CHECKLIST, CERTIFICATE_TEXT as T } from '@/config/certificate';
 import type { CertificateView } from './certificate-data';
 

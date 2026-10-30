@@ -7,14 +7,14 @@
  * closures, no imports.
  */
 export function fitAll(root: ParentNode): void {
-  var els = root.querySelectorAll('[data-fit]');
-  for (var i = 0; i < els.length; i++) {
-    var el = els[i] as HTMLElement;
-    var p = (el.getAttribute('data-fit') || '').split(',');
-    var maxW = Number(p[0]);
-    var maxH = Number(p[1]);
-    var size = Number(p[2]);
-    var min = Number(p[3]);
+  const els = root.querySelectorAll('[data-fit]');
+  for (let i = 0; i < els.length; i++) {
+    const el = els[i] as HTMLElement;
+    const p = (el.getAttribute('data-fit') || '').split(',');
+    const maxW = Number(p[0]);
+    const maxH = Number(p[1]);
+    let size = Number(p[2]);
+    const min = Number(p[3]);
     el.style.fontSize = size + 'px';
     while ((el.scrollWidth > maxW || el.scrollHeight > maxH) && size > min) {
       size -= 1;

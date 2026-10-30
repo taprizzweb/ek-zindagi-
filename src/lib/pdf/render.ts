@@ -40,7 +40,7 @@ async function launch(): Promise<Browser> {
 /** A4 landscape: the certificate canvas (1123 x 794 px) is 297 x 210 mm at 96 dpi. */
 const CANVAS = { width: 1123, height: 794 } as const;
 
-async function withPage<T>(html: string, use: (page: Page) => Promise<T>): Promise<T> {
+async function withPage<T>(html: string, run: (page: Page) => Promise<T>): Promise<T> {
   await acquire();
   let browser: Browser | null = null;
   try {
@@ -57,7 +57,7 @@ async function withPage<T>(html: string, use: (page: Page) => Promise<T>): Promi
     await page.setContent(html, { waitUntil: 'load' });
     // The page's own script waits for the fonts and fits the text, then sets this flag.
     await page.waitForSelector('body[data-fit-done]');
-    return await use(page);
+    return await run(page);
   } catch {
     throw new AppError('pdf_failed', 502);
   } finally {
