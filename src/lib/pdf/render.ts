@@ -1,6 +1,13 @@
+import { join } from 'node:path';
 import chromium from '@sparticuz/chromium';
 import puppeteer, { type Browser, type Page } from 'puppeteer-core';
 import { AppError } from '@/lib/errors';
+
+/**
+ * The Chromium build (brotli files). The path is spelled out with a literal so the file tracer ships the
+ * folder with the function; the package's own default path is computed at run time and is not traced.
+ */
+const CHROMIUM_BIN = join(process.cwd(), 'node_modules', '@sparticuz', 'chromium', 'bin');
 
 const RENDER_TIMEOUT_MS = 20_000;
 const MAX_CONCURRENT = 2;
@@ -31,7 +38,7 @@ async function launch(): Promise<Browser> {
   }
   // Serverless (Vercel / AWS Lambda): the bundled Chromium build.
   return puppeteer.launch({
-    executablePath: await chromium.executablePath(),
+    executablePath: await chromium.executablePath(CHROMIUM_BIN),
     headless: 'shell',
     args: chromium.args,
   });

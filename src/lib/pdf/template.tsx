@@ -15,8 +15,13 @@ import { fontFaceCss } from './fonts';
  * outputFileTracingIncludes in next.config.ts.
  */
 const nodeRequire = createRequire(join(process.cwd(), 'package.json'));
+// Literal folder paths: the file tracer sees them and ships these packages with the function.
+const REACT_DOM_DIR = join(process.cwd(), 'node_modules', 'react-dom');
+const REACT_DIR = join(process.cwd(), 'node_modules', 'react');
+const SCHEDULER_DIR = join(process.cwd(), 'node_modules', 'scheduler');
 function renderToStaticMarkup(element: ReactElement): string {
-  const server = nodeRequire('react-dom/server') as {
+  void [REACT_DIR, SCHEDULER_DIR];
+  const server = nodeRequire(join(REACT_DOM_DIR, 'server')) as {
     renderToStaticMarkup(e: ReactElement): string;
   };
   return server.renderToStaticMarkup(element);

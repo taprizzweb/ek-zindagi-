@@ -19,10 +19,10 @@ const CERTIFICATE_FILES = [
   './public/fonts/**/*',
   './src/components/certificate/certificate.css',
   './assets/branding/jaipur-police.png',
-  './node_modules/@sparticuz/chromium/bin/**/*',
-  './node_modules/react/**/*',
-  './node_modules/react-dom/**/*',
-  './node_modules/scheduler/**/*',
+  './node_modules/@sparticuz/chromium/bin/*',
+  './node_modules/react/**',
+  './node_modules/react-dom/**',
+  './node_modules/scheduler/**',
 ];
 
 const config: NextConfig = {
