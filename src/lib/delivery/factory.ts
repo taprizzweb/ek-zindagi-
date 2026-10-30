@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAuditSink } from '@/lib/audit/audit-supabase';
 import { AppError } from '@/lib/errors';
+import { loadSettings } from '@/lib/settings/settings-store-supabase';
 import { serverEnv } from '@/lib/env';
 import { prepareBridgeDelivery } from './bridge';
 import { sendViaCloudApi, type CloudDeps } from './cloud';
@@ -32,7 +33,7 @@ export function cloudDeps(admin: SupabaseClient, env: Env): CloudDeps {
     audit: supabaseAuditSink(admin),
     wa: new WhatsAppClient(whatsappConfig(env)),
     language: env.MESSAGE_LANGUAGE,
-    paused: () => env.CAMPAIGN_PAUSED,
+    paused: async () => (await loadSettings(admin)).campaignPaused,
     maxPerOfficerHour: env.ENTRY_MAX_PER_OFFICER_HOUR,
     inlineAttempts: 3,
     maxTotalAttempts: env.DELIVERY_RETRY_MAX_ATTEMPTS,
@@ -41,7 +42,7 @@ export function cloudDeps(admin: SupabaseClient, env: Env): CloudDeps {
   };
 }
 
-/** The provider for the configured DELIVERY_MODE. The kill switch (CAMPAIGN_PAUSED) stops both. */
+/** The provider for the configured DELIVERY_MODE. The kill switch (the CAMPAIGN_PAUSED variable or the saved setting) stops both. */
 export function createDeliveryProvider(admin: SupabaseClient, env: Env): DeliveryProvider {
   if (env.DELIVERY_MODE === 'cloud_api') {
     const deps = cloudDeps(admin, env);
@@ -56,7 +57,7 @@ export function createDeliveryProvider(admin: SupabaseClient, env: Env): Deliver
   return {
     mode: 'bridge',
     async send(i) {
-      if (env.CAMPAIGN_PAUSED) throw new AppError('campaign_paused', 503);
+      if ((await loadSettings(admin)).campaignPaused) throw new AppError('campaign_paused', 503);
       const r = await prepareBridgeDelivery(
         {
           ports: supabaseBridgePorts(admin),

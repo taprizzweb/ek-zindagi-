@@ -83,9 +83,16 @@ have recorded the send waits and is applied afterwards.
 
 ## Kill switch
 
-Set `CAMPAIGN_PAUSED=true` and redeploy (or change the variable in the hosting dashboard). Nothing is sent in either
-mode and the background job stops; officers see "Sending is paused". A database-backed switch on the admin
-screen arrives in milestone 6.
+Two ways, both stop every send (bridge and cloud API) and the background job at once; officers see "Sending is paused":
+
+- On screen: a supervisor or admin taps **Pause campaign** on the supervisor screen (or the admin settings). Resume the same way.
+- Environment: `CAMPAIGN_PAUSED=true` and redeploy. This is a hard switch: the screen cannot resume it.
+
+## Retrying a failure
+
+The supervisor screen lists failures with a reason. **Retry** sends the message again, once, through the same checks as a first send.
+It works only while the PDF still exists. If the failure says "unknown whether the message was sent", check with the
+person first (the screen asks for confirmation): a second certificate is worse than a late one.
 
 ## Not verified yet
 

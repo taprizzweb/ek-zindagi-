@@ -18,7 +18,14 @@ export type AuditAction =
   | 'delivery_failed'
   | 'opt_out_recorded'
   | 'template_category_changed'
-  | 'certificate_downloaded';
+  | 'certificate_downloaded'
+  | 'retention_run'
+  | 'retention_leftover'
+  | 'settings_changed'
+  | 'entry_reviewed'
+  | 'delivery_retried'
+  | 'campaign_paused'
+  | 'campaign_resumed';
 
 /** Keep in step with the audit_meta_no_personal_keys constraint in the first migration. */
 export const FORBIDDEN_AUDIT_KEYS = [

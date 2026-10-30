@@ -9,8 +9,27 @@ export default async function AdminHome() {
       <h1 className="text-2xl font-semibold">व्यवस्थापन / Administration</h1>
       <ul className="mt-4 space-y-2">
         <li>
-          <Link className="text-accent underline" href="/admin/officers">
+          <Link
+            className="inline-flex min-h-11 items-center text-accent underline"
+            href="/admin/officers"
+          >
             अधिकारी खाते / Officer accounts
+          </Link>
+        </li>
+        <li>
+          <Link
+            className="inline-flex min-h-11 items-center text-accent underline"
+            href="/admin/settings"
+          >
+            सेटिंग्स / Settings
+          </Link>
+        </li>
+        <li>
+          <Link
+            className="inline-flex min-h-11 items-center text-accent underline"
+            href="/admin/audit"
+          >
+            ऑडिट लॉग / Audit log
           </Link>
         </li>
       </ul>

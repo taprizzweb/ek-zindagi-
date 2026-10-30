@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { startFakeWhatsApp, type FakeWhatsApp, metaError } from '../integration/fake-whatsapp';
 import { FAKE_SUPABASE_PORT, appEnv } from './env';
-import { OFFICER, startFakeSupabase } from './fake-supabase';
+import { OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
 
 /**
  * The real app in cloud_api mode (production build), talking to the fake Supabase and the fake
@@ -34,11 +34,11 @@ async function waitForApp() {
   throw new Error('app did not start');
 }
 
-async function login(): Promise<string> {
+async function login(who: { email: string; password: string } = OFFICER): Promise<string> {
   const res = await fetch(`${URL_}/api/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: URL_ },
-    body: JSON.stringify({ email: OFFICER.email, password: OFFICER.password }),
+    body: JSON.stringify({ email: who.email, password: who.password }),
   });
   expect([res.status, await res.clone().text()]).toEqual([200, expect.any(String)]);
   return res.headers
@@ -290,5 +290,72 @@ describe('cron', () => {
     expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
     await cron(CRON_SECRET);
     expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
+  });
+});
+
+describe('supervisor retry', () => {
+  const retry = (id: string, as = supervisorCookie) =>
+    fetch(`${URL_}/api/entries/${id}/retry`, {
+      method: 'POST',
+      headers: { origin: URL_, cookie: as },
+    });
+  let supervisorCookie = '';
+
+  it('sends a failed message again, once, and audits it', async () => {
+    supervisorCookie = await login(SUPERVISOR);
+    wa.script('messages', metaError(400, 131026));
+    const id = seedEntry();
+    expect((await send(id)).status).toBe(502); // permanent failure, now in the failures list
+    expect(entry(id).status).toBe('failed');
+    wa.reset();
+    const res = await retry(id, supervisorCookie);
+    expect(res.status).toBe(200);
+    expect(entry(id)).toMatchObject({ status: 'sent', delivery_mode: 'cloud_api' });
+    expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
+    expect(fake.state.audit.map((a) => a.action)).toContain('delivery_retried');
+    // A second click does not send a second message.
+    expect((await retry(id, supervisorCookie)).status).toBe(409);
+    expect(wa.requests.filter((r) => r.endpoint === 'messages')).toHaveLength(1);
+  });
+
+  it('an officer cannot use it', async () => {
+    const id = seedEntry({ status: 'failed' });
+    expect((await retry(id, cookie)).status).toBe(403);
+    expect(entry(id).status).toBe('failed');
+    expect(wa.requests).toHaveLength(0);
+  });
+
+  it('nothing to send once the data is deleted', async () => {
+    supervisorCookie = await login(SUPERVISOR);
+    const id = seedEntry({
+      status: 'failed',
+      pdf_path: null,
+      purged_at: new Date().toISOString(),
+      person_name: null,
+      phone_e164: null,
+    });
+    expect((await retry(id, supervisorCookie)).status).toBe(409);
+    expect(wa.requests).toHaveLength(0);
+  });
+
+  it('while the campaign is paused the entry stays in the failures list', async () => {
+    supervisorCookie = await login(SUPERVISOR);
+    fake.state.settings.push({ key: 'campaign_paused', value: true });
+    const id = seedEntry({ status: 'failed' });
+    const res = await retry(id, supervisorCookie);
+    expect(res.status).toBe(503);
+    expect(entry(id).status).toBe('failed');
+    expect(wa.requests).toHaveLength(0);
+  });
+
+  it('the pause setting also stops a normal send and the background job', async () => {
+    fake.state.settings.push({ key: 'campaign_paused', value: true });
+    const id = seedEntry();
+    expect((await send(id)).status).toBe(503);
+    const cronRes = await fetch(`${URL_}/api/cron/delivery-retry`, {
+      headers: { authorization: `Bearer ${CRON_SECRET}` },
+    });
+    expect(cronRes.status).toBe(503);
+    expect(wa.requests).toHaveLength(0);
   });
 });

@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
 
 const ADMIN = '00000000-0000-4000-8000-0000000000a1';
 const SUPERVISOR = '00000000-0000-4000-8000-0000000000b1';
@@ -1210,6 +1210,286 @@ describe('cloud API delivery (migration 5)', () => {
     await denied(
       q(`update public.entries set wa_category = 'spam' where id = $1`, [id]),
       /wa_category/,
+    );
+  });
+});
+
+describe('retention, settings, review and counts (migration 6)', () => {
+  const seq = { n: 0 };
+  async function entry(
+    over: {
+      status?: string;
+      expires?: string; // an interval relative to now, e.g. '-3 hours'
+      created?: string;
+      photoSource?: 'none' | 'camera' | 'gallery';
+      location?: 'gps' | 'manual';
+      consent?: boolean;
+      hash?: string;
+      officer?: string;
+      pdf?: boolean;
+      sent?: string;
+      delivered?: string;
+    } = {},
+  ) {
+    const id = `80000000-0000-4000-8000-${String(++seq.n).padStart(12, '0')}`;
+    const photoSource = over.photoSource ?? 'none';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, lat, lng, photo_source,
+         gallery_reason, consent_checked, status, person_name, phone_e164, phone_hash, photo_path, pdf_path,
+         created_at, expires_at, sent_at, delivered_at, area_name)
+       values ($1::uuid, 'EKZ-R-' || substr(md5($1::text), 1, 8), $2, 'helmet', $3::public.location_source,
+         case when $3 = 'gps' then 26.912 end, case when $3 = 'gps' then 75.787 end,
+         $4::public.photo_source, case when $4 = 'gallery' then 'camera broken' end, $5::boolean,
+         $6::public.entry_status, 'Ravi Kumar', '+919876543210', $7,
+         case when $4 = 'none' then null else $1::text || '.jpg' end,
+         case when $8::boolean then $1::text || '.pdf' end,
+         now() + coalesce($9::text, '-1 day')::interval, now() + coalesce($10::text, '24 hours')::interval,
+         case when $11::text is null then null else now() + $11::text::interval end,
+         case when $12::text is null then null else now() + $12::text::interval end, 'Malviya Nagar')`,
+      [
+        id,
+        over.officer ?? OFFICER1,
+        over.location ?? 'gps',
+        photoSource,
+        over.consent ?? true,
+        over.status ?? 'ready',
+        over.hash ?? HASH,
+        over.pdf ?? true,
+        over.created ?? '-1 minute',
+        over.expires ?? null,
+        over.sent ?? null,
+        over.delivered ?? null,
+      ],
+    );
+    return id;
+  }
+  // These tests commit their rows (the functions run in the test's own transaction), so clean up after each.
+  afterEach(async () => {
+    await q(`delete from public.cert_links where entry_id::text like '80000000-%'`);
+    await q(`delete from public.entries where id::text like '80000000-%'`);
+    await q(`delete from public.rate_limits where key like 't:%'`);
+    await q(`delete from public.settings`);
+  });
+  const svc = <T>(fn: () => Promise<T>) => as('service_role', null, fn);
+  const row = async (id: string) =>
+    (await q('select * from public.entries where id = $1', [id])).rows[0];
+  const due = async () =>
+    (await q('select id from public.due_for_purge(1000)')).rows.map((r) => r.id as string);
+
+  it('finds only what is due: expired, or delivered more than an hour ago', async () => {
+    const fresh = await entry();
+    const expired = await entry({ expires: '-1 minute', created: '-25 hours' });
+    const deliveredOld = await entry({ status: 'delivered', delivered: '-2 hours' });
+    const deliveredNew = await entry({ status: 'delivered', delivered: '-10 minutes' });
+    const sendingExpired = await entry({ status: 'sending', expires: '-5 minutes' });
+    const sendingLongExpired = await entry({ status: 'sending', expires: '-2 hours' });
+    const ids = await svc(due);
+    expect(ids).toContain(expired);
+    expect(ids).toContain(deliveredOld);
+    expect(ids).toContain(sendingLongExpired);
+    for (const not of [fresh, deliveredNew, sendingExpired]) expect(ids).not.toContain(not);
+  });
+
+  it('clears every personal field, keeps the hash, code and counts, and removes the links', async () => {
+    const id = await entry({ expires: '-1 hour', photoSource: 'camera' });
+    await q(
+      `insert into public.cert_links (entry_id, token_hash, expires_at)
+       values ($1::uuid, encode(sha256(convert_to($2::text, 'UTF8')), 'hex'), now() + interval '1 hour')`,
+      [id, id],
+    );
+    const n = (await q('select public.finish_purge($1::uuid[]) as n', [[id]])).rows[0].n; // direct: svc() rolls back
+    expect(n).toBe(1);
+    const r = await row(id);
+    expect(r).toMatchObject({
+      person_name: null,
+      phone_e164: null,
+      other_text: null,
+      photo_path: null,
+      pdf_path: null,
+      phone_hash: HASH,
+      area_name: 'Malviya Nagar',
+    });
+    expect(r.purged_at).not.toBeNull();
+    expect(
+      (await q('select count(*)::int as n from public.cert_links where entry_id = $1', [id]))
+        .rows[0].n,
+    ).toBe(0);
+  });
+
+  it('is idempotent: purging twice clears once', async () => {
+    const id = await entry({ expires: '-1 hour' });
+    const [a, b] = await svc(async () => [
+      (await q('select public.finish_purge($1::uuid[]) as n', [[id]])).rows[0].n,
+      (await q('select public.finish_purge($1::uuid[]) as n', [[id]])).rows[0].n,
+    ]);
+    expect([a, b]).toEqual([1, 0]);
+  });
+
+  it('does not offer an entry again once purged', async () => {
+    const id = await entry({ expires: '-1 hour' });
+    await q('select public.finish_purge($1::uuid[])', [[id]]);
+    expect(await svc(due)).not.toContain(id);
+  });
+
+  it('self-check: overdue rows are counted only after a two-hour grace; nothing is dirty after a clean purge', async () => {
+    const check = () =>
+      svc(async () => (await q('select * from public.retention_leftovers()')).rows[0]);
+    const base = await check();
+    const lateButInGrace = await entry({ expires: '-30 minutes' });
+    const overdue = await entry({ expires: '-3 hours' });
+    expect((await check()).overdue).toBe(base.overdue + 1);
+    await q('select public.finish_purge($1::uuid[])', [[overdue, lateButInGrace]]);
+    const after = await check();
+    expect(after.overdue).toBe(base.overdue);
+    expect(after.dirty).toBe(base.dirty);
+  });
+
+  it('the database itself refuses a purged row that still holds personal data', async () => {
+    const id = await entry();
+    await denied(
+      q(`update public.entries set purged_at = now() where id = $1`, [id]),
+      /entries_purged_is_clean/,
+    );
+  });
+
+  it('housekeeping removes only old bookkeeping rows', async () => {
+    await q(
+      `insert into public.rate_limits (key, window_start, hits) values ('t:old', now() - interval '3 days', 1), ('t:new', now(), 1)`,
+    );
+    const r = (await q('select public.housekeeping() as r')).rows[0].r; // run directly: the privilege test is below
+    expect(r.rate_limits).toBeGreaterThanOrEqual(1);
+    const keys = (await q(`select key from public.rate_limits where key like 't:%'`)).rows.map(
+      (x) => x.key,
+    );
+    expect(keys).toEqual(['t:new']);
+  });
+
+  it('requeue puts a failed send back to ready, only while the PDF still exists', async () => {
+    const failed = await entry({ status: 'failed' });
+    const noPdf = await entry({ status: 'failed', pdf: false });
+    const sent = await entry({ status: 'sent' });
+    const [a, b, c] = await svc(async () => [
+      (await q('select public.requeue_failed($1) as ok', [failed])).rows[0].ok,
+      (await q('select public.requeue_failed($1) as ok', [noPdf])).rows[0].ok,
+      (await q('select public.requeue_failed($1) as ok', [sent])).rows[0].ok,
+    ]);
+    expect([a, b, c]).toEqual([true, false, false]);
+  });
+
+  it('review list: gallery, typed location, no consent and repeated numbers, with reasons', async () => {
+    const plain = await entry({ hash: 'c'.repeat(64) });
+    const gallery = await entry({ photoSource: 'gallery', hash: 'd'.repeat(64) });
+    const manual = await entry({ location: 'manual', hash: 'e'.repeat(64) });
+    const noConsent = await entry({ consent: false, hash: 'f'.repeat(64) });
+    const r1 = await entry({ hash: '1'.repeat(64) });
+    const r2 = await entry({ hash: '1'.repeat(64) });
+    const rows = await svc(async () => (await q('select * from public.review_list(100)')).rows);
+    const by = (id: string) => rows.find((r) => r.id === id);
+    expect(by(plain)).toBeUndefined();
+    expect(by(gallery)?.reasons).toEqual(['gallery']);
+    expect(by(manual)?.reasons).toEqual(['manual_location']);
+    expect(by(noConsent)?.reasons).toEqual(['no_consent']);
+    expect(by(r1)?.reasons).toEqual(['repeated_number']);
+    expect(by(r2)?.reasons).toEqual(['repeated_number']);
+    expect(JSON.stringify(rows)).not.toMatch(/Ravi|9876543210/);
+  });
+
+  it('mark_reviewed removes an entry from the list and records who', async () => {
+    const id = await entry({ photoSource: 'gallery', hash: '2'.repeat(64) });
+    const ok = await svc(async () => {
+      const first = (await q('select public.mark_reviewed($1, $2) as ok', [id, SUPERVISOR])).rows[0]
+        .ok;
+      const again = (await q('select public.mark_reviewed($1, $2) as ok', [id, SUPERVISOR])).rows[0]
+        .ok;
+      const left = (await q('select id from public.review_list(100)')).rows.map((r) => r.id);
+      return { first, again, listed: left.includes(id) };
+    });
+    expect(ok).toEqual({ first: true, again: false, listed: false });
+  });
+
+  it('counts per day, officer and violation, without personal data', async () => {
+    const stats = () =>
+      svc(
+        async () =>
+          (
+            await q(
+              `select * from public.entry_stats(now() - interval '1 hour', now() + interval '1 hour')`,
+            )
+          ).rows,
+      );
+    const mineOf = (rows: Record<string, unknown>[]) =>
+      rows.find((r) => r.officer_id === OFFICER2 && r.violation === 'helmet');
+    const before = mineOf(await stats());
+    const n = (k: string) => Number(before?.[k] ?? 0);
+    await entry({ officer: OFFICER2, status: 'sent', sent: '-1 minute' });
+    await entry({
+      officer: OFFICER2,
+      status: 'delivered',
+      sent: '-1 minute',
+      delivered: '-30 seconds',
+    });
+    await entry({ officer: OFFICER2, status: 'failed' });
+    const after = mineOf(await stats())!;
+    expect(Number(after.created) - n('created')).toBe(3);
+    expect(Number(after.sent) - n('sent')).toBe(2);
+    expect(Number(after.delivered) - n('delivered')).toBe(1);
+    expect(Number(after.failed) - n('failed')).toBe(1);
+    expect(Object.keys(after).join()).not.toMatch(/name|phone|photo/);
+  });
+
+  it('settings: only known keys with the right value types; browser roles cannot touch them', async () => {
+    await q(
+      `insert into public.settings (key, value) values ('campaign_paused', 'true'), ('retention_hours', '12')`,
+    );
+    await denied(
+      q(`insert into public.settings (key, value) values ('retention_hours', '500')`),
+      /settings_value_type/,
+    );
+    await denied(
+      q(`insert into public.settings (key, value) values ('retention_hours', '1.5')`),
+      /settings_value_type/,
+    );
+    await denied(
+      q(`insert into public.settings (key, value) values ('campaign_paused', '"yes"')`),
+      /settings_value_type/,
+    );
+    await denied(
+      q(`insert into public.settings (key, value) values ('anything', 'true')`),
+      /settings_key_check|check/,
+    );
+    for (const [role, uid] of [
+      ['authenticated', ADMIN],
+      ['authenticated', SUPERVISOR],
+      ['anon', null],
+    ] as const) {
+      await as(role, uid, () => denied(q('select * from public.settings')));
+    }
+  });
+
+  it('only the server can run the new functions', async () => {
+    for (const [role, uid] of [
+      ['authenticated', ADMIN],
+      ['authenticated', SUPERVISOR],
+      ['anon', null],
+    ] as const) {
+      for (const sql of [
+        'select * from public.due_for_purge(5)',
+        'select public.finish_purge(array[]::uuid[])',
+        'select public.housekeeping()',
+        'select * from public.retention_leftovers()',
+        `select * from public.review_list(5)`,
+        `select * from public.entry_stats(now() - interval '1 day', now())`,
+      ]) {
+        await as(role, uid, () => denied(q(sql)));
+      }
+    }
+  });
+
+  it('accepts the new audit actions', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('retention_run', '{"purged":3}'), ('retention_leftover', '{"overdue":1}'),
+       ('settings_changed', '{"key":"campaign_paused","value":true}'), ('entry_reviewed', '{}'), ('delivery_retried', '{}'),
+       ('campaign_paused', '{}'), ('campaign_resumed', '{}')`,
     );
   });
 });

@@ -60,8 +60,17 @@ export function publicEnv() {
   });
 }
 
-/** Cloud API mode needs the WhatsApp settings; bridge mode does not. */
+/**
+ * Cloud API mode needs the WhatsApp settings; bridge mode does not. A production server always needs
+ * CRON_SECRET: without it the scheduler cannot call the retention job, and personal data would not be deleted.
+ */
 const serverSchema = serverObject.superRefine((v, ctx) => {
+  if (process.env.NODE_ENV === 'production' && !v.CRON_SECRET)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['CRON_SECRET'],
+      message: 'required in production (the retention job needs it)',
+    });
   if (v.DELIVERY_MODE !== 'cloud_api') return;
   for (const key of [
     'WHATSAPP_PHONE_NUMBER_ID',

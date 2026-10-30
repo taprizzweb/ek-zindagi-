@@ -11,6 +11,7 @@ import { handle, json } from '@/lib/http';
 import { MAX_UPLOAD_BYTES, processPhoto } from '@/lib/image/process-photo';
 import { clientIp } from '@/lib/security/ip';
 import { assertSameOrigin } from '@/lib/security/origin';
+import { loadSettings } from '@/lib/settings/settings-store-supabase';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { entryInputSchema } from '@/lib/validation/entry';
 
@@ -51,14 +52,15 @@ export async function POST(request: Request) {
 
     const env = serverEnv();
     const admin = createAdminClient();
+    const settings = await loadSettings(admin);
     const created = await createEntry(
       {
         ports: supabaseEntryPorts(admin),
         audit: supabaseAuditSink(admin),
         config: {
-          allowGallery: env.ALLOW_GALLERY_FALLBACK,
+          allowGallery: settings.allowGallery,
           dedupeHours: env.DEDUPE_HOURS,
-          retentionHours: env.RETENTION_HOURS,
+          retentionHours: settings.retentionHours,
           maxPerOfficerHour: env.ENTRY_MAX_PER_OFFICER_HOUR,
           maxPerOfficerDay: env.ENTRY_MAX_PER_OFFICER_DAY,
           maxPerIpHour: env.ENTRY_MAX_PER_IP_HOUR,

@@ -1,8 +1,8 @@
 export interface DeliveryInput {
   entryId: string;
   actor: { id: string; officerCode: string | null };
-  /** Only the officer who made the entry may send it. */
-  onlyOfficerId: string;
+  /** When set, only that officer may send it. A supervisor retrying a failure leaves it out. */
+  onlyOfficerId?: string;
 }
 
 export type DeliveryResult =

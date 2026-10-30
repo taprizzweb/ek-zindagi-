@@ -18,7 +18,7 @@ certificate (PDF) and sends it to the person's WhatsApp number. Personal data is
 | 3. Certificate PDF (redesigned: landscape v2)                 | done        |
 | 4. Bridge delivery (24-hour links, wa.me hand-off)            | done        |
 | 5. Cloud API delivery (webhook, STOP, retries, kill switch)   | done        |
-| 6. Retention, supervisor/admin screens                        | not started |
+| 6. Retention, supervisor/admin screens, kill switch           | done        |
 | 7. Hardening, docs, deploy                                    | not started |
 
 This README grows with each milestone. Deploy steps, the real-phone test script and the
@@ -111,10 +111,34 @@ The date and time on the certificate is the **server's** time of record, not the
   STOP opt-out line. It never mentions a challan, fine, penalty or offence (tested for every language and
   violation).
 
+### Retention, supervisor and admin screens (milestone 6)
+
+- **Deleting personal data.** An hourly job (`/api/cron/retention`, see `vercel.json`) deletes the photo and
+  PDF files, **checks that they are gone**, and only then clears name, number and file paths in the
+  database. An entry is due when its expiry has passed (`RETENTION_HOURS` at creation, default 24) or
+  when it was delivered/read more than an hour ago. A file that cannot be deleted keeps its entry, which is
+  tried again on the next run. The code, violation, area, officer code, timestamps and the phone **hash**
+  stay (the hash is only for the duplicate check and the opt-out list). Every run writes an audit entry
+  with counts, and a self-check reports anything overdue or left over; the supervisor screen turns red when
+  the job has not run for three hours.
+- **`CRON_SECRET` is required in production** (the server refuses to start without it), because the job
+  cannot run without it. Hourly and five-minute schedules need a Vercel plan that allows them; on a plan
+  that does not, use Supabase `pg_cron` or an external scheduler to call the two `/api/cron/*` routes with
+  the bearer secret.
+- **Supervisor screen:** pause or resume the campaign (one tap and a confirmation), counts for today and the
+  week by officer and by violation, CSV of the counts, failures with a readable reason and a **Retry**
+  button (cloud API mode, and only while the PDF still exists; an unknown-outcome failure asks for
+  confirmation first), the review list (gallery photo, typed location, consent not ticked, same number
+  again) with "Mark reviewed", and the last deletion run.
+- **Admin screens:** officers (as before), **settings** (pause, gallery fallback, retention hours; each
+  change is audited), and the **audit log** with filters. Delivery mode, message language, branding and the
+  duplicate window stay environment settings, shown read-only: changing them needs a redeploy on purpose.
+- **Pause** is either the `CAMPAIGN_PAUSED` environment variable (a hard switch the screen cannot undo)
+  or the saved setting. It stops sends in both delivery modes and the background retry job.
+
 ### Still to come
 
-Milestone 6 (retention job, supervisor and admin screens, kill-switch screen), 7 (hardening, privacy
-documents, runbook, deploy, manual device test script).
+Milestone 7 (hardening, privacy documents, runbook, deploy steps, manual device test script).
 
 ## What exists after milestone 1
 

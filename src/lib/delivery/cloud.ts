@@ -43,7 +43,7 @@ export interface CloudDeps {
   };
   language: MessageLanguage;
   /** The kill switch: true stops every send and every retry at once. */
-  paused(): boolean;
+  paused(): boolean | Promise<boolean>;
   maxPerOfficerHour: number;
   /** Tries inside one request or retry run before giving up for now (transient failures only). */
   inlineAttempts: number;
@@ -189,7 +189,7 @@ export async function sendViaCloudApi(
   actor: { id: string; officerCode: string | null },
   onlyOfficerId?: string,
 ): Promise<CloudResult> {
-  if (deps.paused()) throw new AppError('campaign_paused', 503);
+  if (await deps.paused()) throw new AppError('campaign_paused', 503);
   const entry = await deps.ports.loadForSend(entryId);
   if (!entry || (onlyOfficerId && entry.officerId !== onlyOfficerId))
     throw new AppError('not_found', 404);
@@ -226,12 +226,12 @@ export interface RetryReport {
  * that are due, up to the attempt limit. Does nothing while the campaign is paused.
  */
 export async function retryDueDeliveries(deps: CloudDeps, limit = 20): Promise<RetryReport> {
-  if (deps.paused()) throw new AppError('campaign_paused', 503);
+  if (await deps.paused()) throw new AppError('campaign_paused', 503);
   const staleMarked = await deps.ports.markStale(STALE_SEND_MINUTES);
   const ids = await deps.ports.dueRetries(limit, deps.maxTotalAttempts);
   const report: RetryReport = { staleMarked, attempted: 0, sent: 0, failed: 0 };
   for (const id of ids) {
-    if (deps.paused()) break;
+    if (await deps.paused()) break;
     const claim = await deps.ports.claim(id);
     if (!claim?.claimed) continue; // someone else took it, or it is no longer retryable
     report.attempted++;

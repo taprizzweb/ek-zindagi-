@@ -4,11 +4,14 @@ import NewEntryForm from '@/components/entry/NewEntryForm';
 import { requirePageUser } from '@/lib/auth/session';
 import { serverEnv } from '@/lib/env';
 import { brandingFromEnv } from '@/lib/pdf/branding';
+import { loadSettings } from '@/lib/settings/settings-store-supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export default async function NewEntryPage() {
   const user = await requirePageUser({ roles: ['officer', 'supervisor'] });
   const env = serverEnv();
   const branding = brandingFromEnv();
+  const settings = await loadSettings(createAdminClient());
   return (
     <AppShell user={user} wide>
       <p className="mb-4">
@@ -20,7 +23,7 @@ export default async function NewEntryPage() {
         </Link>
       </p>
       <NewEntryForm
-        allowGallery={env.ALLOW_GALLERY_FALLBACK}
+        allowGallery={settings.allowGallery}
         branding={{
           showPolice: branding.showPolice,
           policeLogoSrc: branding.policeLogoDataUri ?? null,
