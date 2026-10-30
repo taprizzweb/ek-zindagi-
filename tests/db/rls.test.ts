@@ -1276,11 +1276,11 @@ describe('retention, settings, review and counts (migration 6)', () => {
   const due = async () =>
     (await q('select id from public.due_for_purge(1000)')).rows.map((r) => r.id as string);
 
-  it('finds only what is due: expired, or delivered more than an hour ago', async () => {
+  it('finds only what is due: expired, or delivered more than five minutes ago', async () => {
     const fresh = await entry();
     const expired = await entry({ expires: '-1 minute', created: '-25 hours' });
-    const deliveredOld = await entry({ status: 'delivered', delivered: '-2 hours' });
-    const deliveredNew = await entry({ status: 'delivered', delivered: '-10 minutes' });
+    const deliveredOld = await entry({ status: 'delivered', delivered: '-6 minutes' });
+    const deliveredNew = await entry({ status: 'delivered', delivered: '-2 minutes' });
     const sendingExpired = await entry({ status: 'sending', expires: '-5 minutes' });
     const sendingLongExpired = await entry({ status: 'sending', expires: '-2 hours' });
     const ids = await svc(due);

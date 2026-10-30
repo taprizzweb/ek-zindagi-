@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/retention",
-      "schedule": "0 * * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }

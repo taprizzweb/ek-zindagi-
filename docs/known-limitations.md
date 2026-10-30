@@ -58,7 +58,7 @@ What it cannot stop, and you must handle by other means:
 - In bridge mode the message comes from the officer's own WhatsApp number. Use a dedicated station phone (WhatsApp Business), not a personal number. WhatsApp may restrict a number that messages many strangers.
 - After a timeout, a cloud API send of unknown outcome is **not** retried automatically (a duplicate certificate to a citizen is worse than a late one). A supervisor decides.
 - Changing `PHONE_HASH_SECRET` breaks the opt-out list permanently: the numbers are not stored, so it cannot be rebuilt.
-- The retention job runs hourly. Data can therefore live up to an hour past its stated time. The self-check flags anything more than two hours late.
+- The retention job runs every 10 minutes, so data can live a few minutes past its stated time. The self-check flags anything more than two hours late.
 - Scheduled jobs at this frequency need a Vercel plan that allows them, or another scheduler.
 - Names and places are limited to Latin and Devanagari letters because those are the scripts the certificate fonts cover.
 - The certificate says "Issued by Jaipur Traffic Police" and carries the police logo only when `SHOW_POLICE_BRANDING=true`.

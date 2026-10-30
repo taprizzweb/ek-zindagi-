@@ -377,7 +377,11 @@ export default function NewEntryForm({
               name: name.trim(),
               certCode: created?.certCode ?? '',
               violation: violation || 'other',
-              link: `${baseUrl.replace(/\/+$/, '')}/c/••••••••••••••••••••••`,
+              // Cloud API: the PDF itself is attached (it stays in the person's chat). Bridge: a 24-hour link.
+              link:
+                deliveryMode === 'bridge'
+                  ? `${baseUrl.replace(/\/+$/, '')}/c/••••••••••••••••••••••`
+                  : undefined,
             })}
           </div>
         </div>

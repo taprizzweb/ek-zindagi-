@@ -7,7 +7,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 ## 0. Before you start
 
 - Decide who owns the accounts (NGO) and who has a second login.
-- Decide the delivery mode. Start with `bridge` (no WhatsApp business account needed). Move to `cloud_api` only after `docs/whatsapp-setup.md` is done and the template is approved.
+- Decide the delivery mode. The intended mode is `cloud_api` through the NGO's WhatsApp Business account (Taprizz): the certificate arrives as a PDF file in the person's chat and stays on their phone, and our copy is deleted minutes after delivery. Use `bridge` only for the first tests (no business account needed) or as a fallback; do the steps in `docs/whatsapp-setup.md` and get the template approved before switching.
 - The police logo shows the State Emblem. `SHOW_POLICE_BRANDING=true` only with written permission on file. Never put a police-branded demo on a public address.
 - Government hosting rules may require a specific approved cloud or region. Confirm before putting real data on a commercial host (see `docs/known-limitations.md`).
 
@@ -41,7 +41,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAGE_LANGUAGE` and `GEOCODER` (`none` means officers type the place).
 
 3. Custom domain with https (Vercel does the certificate). The app sets HSTS, so use a domain you will keep.
-4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` (hourly) and `/api/cron/delivery-retry` (every 5 minutes). Vercel sends `Authorization: Bearer $CRON_SECRET` itself. **Check your plan allows those schedules**: the free (Hobby) plan allows daily jobs only, and the deploy will be refused. Without a suitable plan, call both routes from Supabase `pg_cron` / `pg_net` or another scheduler with the same bearer header.
+4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` (every 10 minutes) and `/api/cron/delivery-retry` (every 5 minutes). Vercel sends `Authorization: Bearer $CRON_SECRET` itself. **Check your plan allows those schedules**: the free (Hobby) plan allows daily jobs only, and the deploy will be refused. Without a suitable plan, call both routes from Supabase `pg_cron` / `pg_net` or another scheduler with the same bearer header.
 5. Certificate PDFs use a headless Chromium inside the function. If PDF generation times out or runs out of memory, raise the function memory for `/api/entries/[id]/certificate` in the Vercel project settings (the route allows 60 seconds).
 6. Deploy.
 

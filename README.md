@@ -136,17 +136,17 @@ The date and time on the certificate is the **server's** time of record, not the
 
 ### Retention, supervisor and admin screens (milestone 6)
 
-- **Deleting personal data.** An hourly job (`/api/cron/retention`, see `vercel.json`) deletes the photo and
+- **Deleting personal data.** A job every 10 minutes (`/api/cron/retention`, see `vercel.json`) deletes the photo and
   PDF files, **checks that they are gone**, and only then clears name, number and file paths in the
   database. An entry is due when its expiry has passed (`RETENTION_HOURS` at creation, default 24) or
-  when it was delivered/read more than an hour ago. A file that cannot be deleted keeps its entry, which is
+  when WhatsApp confirmed delivery (cloud API mode) more than five minutes ago. A file that cannot be deleted keeps its entry, which is
   tried again on the next run. The code, violation, area, officer code, timestamps and the phone **hash**
   stay (the hash is only for the duplicate check and the opt-out list). Every run writes an audit entry
   with counts, and a self-check reports anything overdue or left over; the supervisor screen turns red when
   the job has not run for three hours.
 - **`MFA_SECRET` is required in production** (the server refuses to start without it): it encrypts the supervisors' and admins' authenticator secrets and signs the "second step passed" cookie.
 - **`CRON_SECRET` is required in production** (the server refuses to start without it), because the job
-  cannot run without it. Hourly and five-minute schedules need a Vercel plan that allows them; on a plan
+  cannot run without it. Ten-minute and five-minute schedules need a Vercel plan that allows them; on a plan
   that does not, use Supabase `pg_cron` or an external scheduler to call the two `/api/cron/*` routes with
   the bearer secret.
 - **Supervisor screen:** pause or resume the campaign (one tap and a confirmation), counts for today and the

@@ -15,14 +15,14 @@ court system, no challan, fine or penalty is mentioned, and the person has no ac
 
 ### Deleted quickly (personal)
 
-| Data                                        | Why                                                                                                 | Where it is stored                                                        | Deleted                                                                                                                |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Name (2 to 40 characters)                   | Printed on the certificate and in the message                                                       | Database, `entries.person_name`                                           | Within `RETENTION_HOURS` of creation (default 24, at most 168), or 1 hour after delivery is confirmed (cloud API mode) |
-| Mobile number (+91…)                        | To send the certificate                                                                             | Database, `entries.phone_e164`                                            | Same                                                                                                                   |
-| Photo (optional)                            | Printed on the certificate. Re-encoded on the server; camera metadata (location, device) is removed | Private storage bucket `photos`                                           | Same, files deleted first and checked                                                                                  |
-| Certificate PDF                             | What the person receives                                                                            | Private storage bucket `pdfs`                                             | Same                                                                                                                   |
-| Optional note when the violation is "Other" | Lists what the person did                                                                           | Database, `entries.other_text`                                            | Same                                                                                                                   |
-| Certificate link (bridge mode)              | Lets the person open their PDF without logging in                                                   | Database, `cert_links` (a hash of a random token, never the token itself) | Expires after 24 hours; removed when the entry is purged                                                               |
+| Data                                        | Why                                                                                                 | Where it is stored                                                        | Deleted                                                                                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Name (2 to 40 characters)                   | Printed on the certificate and in the message                                                       | Database, `entries.person_name`                                           | Within `RETENTION_HOURS` of creation (default 24, at most 168), or 5 minutes after WhatsApp confirms delivery (cloud API mode) |
+| Mobile number (+91…)                        | To send the certificate                                                                             | Database, `entries.phone_e164`                                            | Same                                                                                                                           |
+| Photo (optional)                            | Printed on the certificate. Re-encoded on the server; camera metadata (location, device) is removed | Private storage bucket `photos`                                           | Same, files deleted first and checked                                                                                          |
+| Certificate PDF                             | What the person receives                                                                            | Private storage bucket `pdfs`                                             | Same                                                                                                                           |
+| Optional note when the violation is "Other" | Lists what the person did                                                                           | Database, `entries.other_text`                                            | Same                                                                                                                           |
+| Certificate link (bridge mode)              | Lets the person open their PDF without logging in                                                   | Database, `cert_links` (a hash of a random token, never the token itself) | Expires after 24 hours; removed when the entry is purged                                                                       |
 
 ### Kept longer (cannot identify the person on their own)
 
@@ -70,11 +70,11 @@ The browser can read the database only with an officer's own sign-in and only th
 2. "Generate certificate": the server renders the PDF from the saved data. The photo is placed in the frame.
 3. "Send on WhatsApp": bridge mode opens WhatsApp on the officer's phone with a message and a 24-hour link; cloud API mode sends the template message with the PDF itself.
 4. If the person replies STOP, their number's hash goes on the opt-out list.
-5. **Deletion.** An hourly job deletes the files, checks they are gone, then clears name, number, note and file paths. A supervisor or admin can do this at once for one entry from "Requests from citizens" (by the code on the certificate).
+5. **Deletion.** A job that runs every 10 minutes deletes the files, checks they are gone, then clears name, number, note and file paths. A supervisor or admin can do this at once for one entry from "Requests from citizens" (by the code on the certificate).
 6. What remains is the table of non-personal fields above.
 
 ## Checking that deletion works
 
-- The hourly job writes an audit entry (`retention_run`) with counts every time, and `retention_leftover` when anything
+- The retention job writes an audit entry (`retention_run`) with counts every time, and `retention_leftover` when anything
   overdue or incompletely deleted is found. The supervisor screen shows the last run and turns red if it has not run for three hours.
 - The database refuses a row marked as purged that still holds a name, number, note or file path.
