@@ -1,0 +1,11 @@
+# Minimal Supabase CLI config so `supabase link` / `supabase db push` work.
+project_id = "ek-zindagi"
+
+[api]
+# `private` is deliberately not exposed through the Data API.
+schemas = ["public", "graphql_public"]
+
+[auth]
+# Access tokens live one hour; the app enforces a shorter inactivity limit on top.
+jwt_expiry = 3600
+enable_signup = false

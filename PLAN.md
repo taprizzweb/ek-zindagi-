@@ -13,17 +13,17 @@ Flow: **Form -> Certificate -> WhatsApp.** Nothing else.
 
 ## 2. Stack and justification
 
-| Concern | Choice | Why |
-|---|---|---|
-| App | Next.js (App Router), TypeScript strict | One deployable for UI and API routes; matches the brief |
-| Hosting | Vercel | Matches the brief. Region pinned close to Mumbai (`bom1`) |
-| Data / Auth / Storage | Supabase (ap-south-1 Mumbai) | Auth, Postgres with RLS, private buckets in one place |
-| Styling | Tailwind CSS, plain components | Light-theme plain form, no UI kit |
-| Validation | zod, shared between client and server | One schema, no drift |
-| PDF | Headless Chromium (`puppeteer-core` + `@sparticuz/chromium`) rendering the HTML template | See 4 |
-| Jobs | Vercel Cron calling a protected route; SQL functions where possible | Retention, self-check, retries |
-| Tests | Vitest (unit/integration), Playwright (e2e, PDF visual), pgTAP or SQL-level tests for RLS | |
-| Lint/format | ESLint, Prettier, `tsc --noEmit` in CI | |
+| Concern               | Choice                                                                                    | Why                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| App                   | Next.js (App Router), TypeScript strict                                                   | One deployable for UI and API routes; matches the brief   |
+| Hosting               | Vercel                                                                                    | Matches the brief. Region pinned close to Mumbai (`bom1`) |
+| Data / Auth / Storage | Supabase (ap-south-1 Mumbai)                                                              | Auth, Postgres with RLS, private buckets in one place     |
+| Styling               | Tailwind CSS, plain components                                                            | Light-theme plain form, no UI kit                         |
+| Validation            | zod, shared between client and server                                                     | One schema, no drift                                      |
+| PDF                   | Headless Chromium (`puppeteer-core` + `@sparticuz/chromium`) rendering the HTML template  | See 4                                                     |
+| Jobs                  | Vercel Cron calling a protected route; SQL functions where possible                       | Retention, self-check, retries                            |
+| Tests                 | Vitest (unit/integration), Playwright (e2e, PDF visual), pgTAP or SQL-level tests for RLS |                                                           |
+| Lint/format           | ESLint, Prettier, `tsc --noEmit` in CI                                                    |                                                           |
 
 Delivery sits behind `DeliveryProvider` with `bridge` and `cloud_api` implementations, selected by `DELIVERY_MODE`. No code or data change to switch.
 
@@ -65,6 +65,7 @@ Delivery sits behind `DeliveryProvider` with `bridge` and `cloud_api` implementa
 **Choice: HTML template rendered by headless Chromium.** The reference is already HTML/CSS (gradient gold frame, masked patterned border, SVG garland, rotated watermark). Chromium reproduces this exactly and shapes Devanagari correctly with bundled Noto fonts. Rebuilding in `pdf-lib` or `react-pdf` would mean re-implementing the gradients and shaping, and would not match the reference.
 
 Constraints and mitigations:
+
 - Fonts (Noto Serif, Noto Sans Devanagari) are bundled and loaded from local files; no network at render time.
 - Photo is embedded as a base64 data URI after server-side re-encode, so no external fetch.
 - The garland uses an inline script in the reference. In production the flower positions are **precomputed into static SVG** (no script at render time).
@@ -134,17 +135,17 @@ What I cannot test here: real WhatsApp delivery, real phone GPS and cameras, and
 
 ## 11. Risks
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Chromium cold start or size on Vercel | PDF slower than 5 s | Benchmark early (milestone 3); fallback render service |
-| Meta template approval, or classification as Marketing | Real delivery delayed, higher cost | Bridge mode ships first; category in config; submit template early |
-| Bridge mode: personal-number bans, wrong number | Number restricted, photo to a stranger | Dedicated station phone with WhatsApp Business; confirm-number step; documented |
-| Government hosting rules may require an approved cloud | Hosting may need to move | Mumbai region now; keep Supabase/Vercel specifics behind thin adapters; confirm with police |
-| Using a real person's photo and a "last seen" framing | Distress, misuse, reputational and legal exposure | Consent checkbox stored, hard-coded disclaimer/stamp/watermark, no "late/RIP/deceased" wording, deletion in 24 h, opt-out; lawyer review (flagged) |
-| Poor GPS or network in the field | Missing location or lost entry | Manual place fallback (flagged), local draft persistence, retry |
-| Reverse geocoding terms | Production use of free endpoints breaches terms | See 12 |
-| Wrong-number or duplicate sends | Privacy incident | Confirm step, dedupe by phone hash, runbook |
-| Hindi rendering differences between Chromium builds | Layout drift | Bundled fonts, visual regression test |
+| Risk                                                   | Impact                                            | Mitigation                                                                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chromium cold start or size on Vercel                  | PDF slower than 5 s                               | Benchmark early (milestone 3); fallback render service                                                                                             |
+| Meta template approval, or classification as Marketing | Real delivery delayed, higher cost                | Bridge mode ships first; category in config; submit template early                                                                                 |
+| Bridge mode: personal-number bans, wrong number        | Number restricted, photo to a stranger            | Dedicated station phone with WhatsApp Business; confirm-number step; documented                                                                    |
+| Government hosting rules may require an approved cloud | Hosting may need to move                          | Mumbai region now; keep Supabase/Vercel specifics behind thin adapters; confirm with police                                                        |
+| Using a real person's photo and a "last seen" framing  | Distress, misuse, reputational and legal exposure | Consent checkbox stored, hard-coded disclaimer/stamp/watermark, no "late/RIP/deceased" wording, deletion in 24 h, opt-out; lawyer review (flagged) |
+| Poor GPS or network in the field                       | Missing location or lost entry                    | Manual place fallback (flagged), local draft persistence, retry                                                                                    |
+| Reverse geocoding terms                                | Production use of free endpoints breaches terms   | See 12                                                                                                                                             |
+| Wrong-number or duplicate sends                        | Privacy incident                                  | Confirm step, dedupe by phone hash, runbook                                                                                                        |
+| Hindi rendering differences between Chromium builds    | Layout drift                                      | Bundled fonts, visual regression test                                                                                                              |
 
 ## 12. Assumed defaults (from master prompt section 14; tell me if you disagree)
 

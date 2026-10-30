@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif;
+  --color-ink: #111827;
+  --color-muted: #4b5563;
+  --color-line: #9ca3af;
+  --color-accent: #1e4d8c;
+  --color-accent-dark: #163a6b;
+  --color-danger: #b42318;
+  --color-notice: #fff7e0;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
