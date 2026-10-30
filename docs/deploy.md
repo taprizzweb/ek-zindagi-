@@ -14,10 +14,11 @@ project by the developer: the first deploy is also the first real test. Follow t
 ## 1. Supabase
 
 1. Create a project in the **Mumbai (ap-south-1)** region. Save the database password in a password manager.
-2. Apply the migrations in `supabase/migrations`, **in file order** (seven files, `…0001_init.sql` to `…0007_data_requests.sql`). Either with the CLI (`supabase link --project-ref <ref>` then `supabase db push`) or by pasting each file into the SQL editor and running it.
-3. Check Storage: two **private** buckets, `photos` and `pdfs`, exist (the first migration creates them). Neither may be public.
-4. Authentication: turn **off** "Allow new users to sign up" and email confirmation does not matter (accounts are created by an admin). Set the JWT expiry to 1 hour or less.
-5. Copy from Settings, API: the project URL, the anon (publishable) key and the service-role (secret) key.
+2. Apply the migrations in `supabase/migrations`, **in file order** (eight files, `…0001_init.sql` to `…0008_mfa.sql`; run them one at a time and stop at the first error). Either with the CLI (`supabase link --project-ref <ref>` then `supabase db push`) or by pasting each file into the SQL editor and running it.
+3. **Check it** (the migrations only help if they all went in): paste `supabase/verify.sql` into the SQL editor and run it. A healthy setup shows one row, `ok | nothing wrong found`. Any other row names a problem (a table without row level security, a public bucket, a browser role that can read personal data, a missing migration): fix it before going on. The same check can be run again at any time.
+4. Check Storage: two **private** buckets, `photos` and `pdfs`, exist (the first migration creates them). Neither may be public.
+5. Authentication: turn **off** "Allow new users to sign up" and email confirmation does not matter (accounts are created by an admin). Set the JWT expiry to 1 hour or less.
+6. Copy from Settings, API: the project URL, the anon (publishable) key and the service-role (secret) key.
 
 ## 2. Vercel
 
