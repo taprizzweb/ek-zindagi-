@@ -15,6 +15,15 @@ const securityHeaders = [
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Native / binary packages stay outside the bundle; the files the certificate route reads at
+  // run time (fonts, the serverless Chromium build) are included explicitly.
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core', 'sharp'],
+  outputFileTracingIncludes: {
+    '/api/entries/[id]/certificate': [
+      './assets/**/*',
+      './node_modules/@sparticuz/chromium/bin/**/*',
+    ],
+  },
   reactStrictMode: true,
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

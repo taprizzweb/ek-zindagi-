@@ -18,10 +18,22 @@ const base = {
 const parse = (over: Record<string, unknown>) => entryInputSchema.safeParse({ ...base, ...over });
 
 describe('nameSchema', () => {
-  it.each(['Ravi Kumar', 'रवि कुमार', "D'Souza", 'Anne-Marie', 'Dr. R. K. Sharma', 'Ño', 'அருண்'])(
-    'accepts %s',
+  it.each([
+    'Ravi Kumar',
+    'रवि कुमार',
+    "D'Souza",
+    'Anne-Marie',
+    'Dr. R. K. Sharma',
+    'Ño',
+    'José Álvarez',
+    'Nguyễn',
+  ])('accepts %s', (n) => {
+    expect(nameSchema.safeParse(n).success).toBe(true);
+  });
+  it.each(['அருண்', 'محمد', '李明', 'Ravi Кумар'])(
+    'rejects %s: a script the certificate fonts cannot print',
     (n) => {
-      expect(nameSchema.safeParse(n).success).toBe(true);
+      expect(nameSchema.safeParse(n).success).toBe(false);
     },
   );
   it.each([

@@ -59,8 +59,8 @@ const FIELD_DOM_ID: Record<FieldKey, string> = {
 };
 
 interface Saved {
+  id: string;
   certCode: string;
-  status: string;
 }
 
 export default function NewEntryForm({ allowGallery }: { allowGallery: boolean }) {
@@ -78,6 +78,8 @@ export default function NewEntryForm({ allowGallery }: { allowGallery: boolean }
   const [attempted, setAttempted] = useState(false);
   const [serverError, setServerError] = useState<Bilingual | null>(null);
   const [saved, setSaved] = useState<Saved | null>(null);
+  const [cert, setCert] = useState<'working' | 'ready' | 'failed'>('working');
+  const [certError, setCertError] = useState<Bilingual | null>(null);
   // One id per entry: a retry after a dropped connection can never create a second entry.
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
 
@@ -154,13 +156,14 @@ export default function NewEntryForm({ allowGallery }: { allowGallery: boolean }
         signal: AbortSignal.timeout(45_000),
       });
       const json = (await res.json()) as {
+        id?: string;
         certCode?: string;
-        status?: string;
         error?: { code: string };
       };
-      if (res.ok && json.certCode) {
-        setSaved({ certCode: json.certCode, status: json.status ?? 'saved' });
+      if (res.ok && json.certCode && json.id) {
+        setSaved({ id: json.id, certCode: json.certCode });
         setStep('done');
+        void makeCertificate(json.id);
         return;
       }
       setServerError(messageFor(json.error?.code));
@@ -171,6 +174,30 @@ export default function NewEntryForm({ allowGallery }: { allowGallery: boolean }
       });
     }
     setStep('confirm'); // keep everything entered; sending again reuses the same request id
+  }
+
+  /** Asks the server to create the PDF. Safe to repeat: a finished certificate is left alone. */
+  async function makeCertificate(id: string) {
+    setCert('working');
+    setCertError(null);
+    try {
+      const res = await fetch(`/api/entries/${id}/certificate`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(40_000),
+      });
+      const json = (await res.json()) as { error?: { code: string } };
+      if (res.ok) {
+        setCert('ready');
+        return;
+      }
+      setCertError(messageFor(json.error?.code));
+    } catch {
+      setCertError({
+        hi: 'नेटवर्क नहीं मिला। प्रविष्टि सुरक्षित है, कनेक्शन जाँचकर फिर से कोशिश करें।',
+        en: 'No network. The entry is saved; check the connection and try again.',
+      });
+    }
+    setCert('failed');
   }
 
   function reset() {
@@ -195,10 +222,25 @@ export default function NewEntryForm({ allowGallery }: { allowGallery: boolean }
       <h1 className="text-2xl font-semibold">प्रविष्टि सहेजी गई / Entry saved</h1>
       <p className="text-muted">कोड / Code</p>
       <p className="text-3xl font-semibold tracking-wider">{saved.certCode}</p>
-      <p>
-        स्थिति / Status: <strong>सहेजा गया / Saved</strong>
-      </p>
-      <Button type="button" className="w-full" onClick={reset}>
+      {cert === 'working' ? (
+        <p role="status" className="font-semibold">
+          प्रमाणपत्र बन रहा है… / Creating certificate…
+        </p>
+      ) : null}
+      {cert === 'ready' ? (
+        <p role="status" className="font-semibold text-accent-dark">
+          ✓ प्रमाणपत्र तैयार / Certificate ready
+        </p>
+      ) : null}
+      {cert === 'failed' ? (
+        <div className="space-y-3">
+          <ErrorBox message={certError} />
+          <Button type="button" variant="secondary" onClick={() => void makeCertificate(saved.id)}>
+            फिर से कोशिश करें / Try again
+          </Button>
+        </div>
+      ) : null}
+      <Button type="button" className="w-full" onClick={reset} disabled={cert === 'working'}>
         नई प्रविष्टि / New entry
       </Button>
     </section>

@@ -45,6 +45,18 @@ export const ERROR_MESSAGES: Record<ErrorCode, Bilingual> = {
     hi: 'इस नंबर के धारक ने संदेश न भेजने को कहा है। प्रमाणपत्र नहीं भेजा जाएगा।',
     en: 'The holder of this number asked not to receive messages. No certificate will be sent.',
   },
+  pdf_failed: {
+    hi: 'प्रमाणपत्र नहीं बन सका। आपकी प्रविष्टि सुरक्षित है, फिर से कोशिश करें।',
+    en: 'The certificate could not be created. Your entry is saved; try again.',
+  },
+  busy: {
+    hi: 'प्रमाणपत्र बन रहा है। कुछ सेकंड रुकें।',
+    en: 'The certificate is being created. Wait a few seconds.',
+  },
+  gone: {
+    hi: 'इस प्रविष्टि का डेटा हटाया जा चुका है।',
+    en: 'The data for this entry has already been deleted.',
+  },
   internal: {
     hi: 'कुछ गड़बड़ हो गई। आपका डेटा सुरक्षित है, फिर से कोशिश करें।',
     en: 'Something went wrong on our side. Please try again.',

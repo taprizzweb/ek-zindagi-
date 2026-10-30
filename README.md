@@ -66,6 +66,38 @@ goes through server routes that use the service role after checking the caller. 
 - Officers and supervisors see their own recent entries (status only) on their home screen, read with
   their own session so Row Level Security does the filtering.
 
+## What exists after milestone 3
+
+- **Certificate PDF** (`src/lib/pdf`): the layout of `reference/certificate-reference.html`, rendered by
+  headless Chromium. Fonts (Noto Serif, Noto Serif Devanagari) are bundled in `assets/fonts` and inlined, and
+  the renderer blocks every network request, so a render needs no internet and Hindi is shaped correctly.
+  A4, one page, about 120 KB, about 1 s per certificate (see benchmarks below).
+- **Always on:** the disclaimer, the corner stamp "FOR AWARENESS PURPOSE ONLY (HYPOTHETICAL)" and the diagonal
+  watermark are written into the template itself. No setting, branding option or input can remove them
+  (`tests/unit/certificate-template.test.ts` fuzzes this; `tests/pdf` checks the real PDFs).
+- **Never on by default:** the Rajasthan Police name and logo (`SHOW_POLICE_BRANDING=true` only), the NGO logo
+  (`NGO_LOGO_PATH`) and the technology-partner credit (`PARTNER_CREDIT_TEXT`).
+- **File properties** carry the certificate code and the date; the person's name is deliberately not in them.
+- **Flow:** after an entry is saved the officer's screen asks `POST /api/entries/{id}/certificate`; the entry
+  goes `saved` -> `generating` -> `ready` (or `failed`, with a retry button). The call is idempotent and
+  atomic: two requests can never render the same entry at once, and a render stuck for over two minutes can be
+  taken over. Only the officer who made the entry can trigger it.
+- **Sample output** to look at: `reference/sample-output/*.pdf`. Make your own with
+  `npm run cert:sample -- out.pdf --name "Name" --violation helmet [--photo photo.jpg]`.
+- **Names and places are limited to Latin and Devanagari letters**, the scripts the bundled fonts can print,
+  so a certificate can never show empty boxes.
+
+### Render benchmarks (this container, not Vercel)
+
+| Chromium                                               | Cold (first render, includes unpacking) | Warm        |
+| ------------------------------------------------------ | --------------------------------------- | ----------- |
+| Playwright Chromium (local)                            | about 0.8 s                             | about 0.8 s |
+| `@sparticuz/chromium` (serverless build, as on Vercel) | about 3.7 s                             | about 1.3 s |
+
+Both are under the 5 s target, with a 1200x1600 photo in the certificate. Vercel's CPUs differ, so measure
+there with the manual test script (milestone 7). If a cold start on Vercel exceeds 5 s, the fallback is a small
+separate render service behind the same `createCertificatePdf()` function (see `PLAN.md`).
+
 ## Local setup
 
 Requires Node 22+.
@@ -96,6 +128,7 @@ npm run dev
 ```bash
 npm test            # unit tests (no services needed)
 npm run test:e2e    # browser tests: builds the app, runs Chromium at phone size (see below)
+npm run test:pdf    # certificate PDF tests (needs Chromium and Poppler, see below)
 npm run lint && npm run typecheck && npm run format:check
 ```
 
@@ -109,6 +142,17 @@ policies as `anon`, `authenticated` (officer, supervisor, admin, disabled office
 ```bash
 TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm run test:db
 ```
+
+### Certificate PDF tests
+
+`npm run test:pdf` renders real certificates and inspects the resulting PDF with Poppler
+(`pdftotext`, `pdftoppm`, `pdfinfo`, `pdffonts`; on Debian/Ubuntu `sudo apt-get install poppler-utils`).
+It checks: one A4 page; the disclaimer, stamp and watermark with no photo, a very long name or place, special
+characters, markup in every field and every violation; Devanagari shaping with embedded fonts; size under
+1.5 MB with a heavy photo; render time under 5 s; no network access during rendering; and a **visual
+comparison** with `reference/certificate-reference.png` (32 px blocks, footer excluded, at most 3% of blocks
+may differ; a second test proves a broken layout fails the comparison). `PDF_TEST_SERVERLESS=1 npm run
+test:pdf` runs the same suite against the serverless Chromium build used on Vercel.
 
 ### Browser tests (end to end)
 

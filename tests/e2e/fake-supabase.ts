@@ -21,6 +21,7 @@ export interface FakeState {
   optOuts: string[];
   audit: Row[];
   uploads: { path: string; bytes: Buffer }[];
+  pdfs: { path: string; bytes: Buffer }[];
   deleted: string[];
   requests: string[];
 }
@@ -83,6 +84,7 @@ export function freshState(): FakeState {
     optOuts: [],
     audit: [],
     uploads: [],
+    pdfs: [],
     deleted: [],
     requests: [],
   };
@@ -140,6 +142,29 @@ export async function startFakeSupabase(
 
     // ---- PostgREST
     if (path === '/rest/v1/rpc/rate_limit_hit') return send(200, true);
+    if (path === '/rest/v1/rpc/claim_certificate') {
+      // Mirrors public.claim_certificate in the migration (tested for real in tests/db).
+      const { p_entry_id } = JSON.parse(body.toString()) as { p_entry_id: string };
+      const e = st.entries.find((r) => r.id === p_entry_id);
+      if (!e) return send(200, []);
+      const claimable = !e.purged_at && (e.status === 'saved' || e.status === 'failed');
+      if (claimable) e.status = 'generating';
+      return send(200, [
+        {
+          claimed: claimable,
+          status: e.status,
+          purged: Boolean(e.purged_at),
+          officer_id: e.officer_id,
+          cert_code: e.cert_code,
+          person_name: e.person_name ?? null,
+          area_name: e.area_name ?? null,
+          violation: e.violation,
+          other_text: e.other_text ?? null,
+          photo_path: e.photo_path ?? null,
+          created_at: e.created_at,
+        },
+      ]);
+    }
     if (path === '/rest/v1/audit_log' && method === 'POST') {
       st.audit.push(JSON.parse(body.toString()) as Row);
       return send(201);
@@ -174,6 +199,11 @@ export async function startFakeSupabase(
         return send(201, { created_at });
       }
       const rows = st.entries.filter((r) => matches(r, url.searchParams));
+      if (method === 'PATCH') {
+        const patch = JSON.parse(body.toString()) as Row;
+        for (const r of rows) Object.assign(r, patch);
+        return send(204);
+      }
       if (method === 'HEAD') {
         res.writeHead(200, { 'content-range': `*/${rows.length}` });
         return res.end();
@@ -185,13 +215,25 @@ export async function startFakeSupabase(
     }
 
     // ---- Storage
-    const upload = /^\/storage\/v1\/object\/photos\/(.+)$/.exec(path);
-    if (upload && method === 'POST') {
-      st.uploads.push({
-        path: decodeURIComponent(upload[1]!),
+    const object = /^\/storage\/v1\/object\/(photos|pdfs)\/(.+)$/.exec(path);
+    if (object && method === 'POST') {
+      const [, bucket, name] = object;
+      const file = {
+        path: decodeURIComponent(name!),
         bytes: extractFile(body, req.headers['content-type'] ?? ''),
-      });
-      return send(200, { Id: 'x', Key: `photos/${upload[1]}` });
+      };
+      const list = bucket === 'photos' ? st.uploads : st.pdfs;
+      const i = list.findIndex((u) => u.path === file.path);
+      if (i >= 0 && req.headers['x-upsert'] !== 'true') return send(409, { message: 'exists' });
+      if (i >= 0) list.splice(i, 1);
+      list.push(file);
+      return send(200, { Id: 'x', Key: `${bucket}/${name}` });
+    }
+    if (object && method === 'GET' && object[1] === 'photos') {
+      const found = st.uploads.find((u) => u.path === decodeURIComponent(object[2]!));
+      if (!found) return send(404, { message: 'not found' });
+      res.writeHead(200, { 'content-type': 'image/jpeg' });
+      return res.end(found.bytes);
     }
     if (path === '/storage/v1/object/photos' && method === 'DELETE') {
       const { prefixes } = JSON.parse(body.toString()) as { prefixes: string[] };

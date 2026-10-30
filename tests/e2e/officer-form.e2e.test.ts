@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { expect } from '@playwright/test';
 import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
 import { APP_PORT, APP_URL, FAKE_SUPABASE_PORT, appEnv } from './env';
+import { pdfInfo, pdfText } from '../pdf/helpers';
 import { OFFICER, startFakeSupabase } from './fake-supabase';
 
 let fake: Awaited<ReturnType<typeof startFakeSupabase>>;
@@ -165,6 +166,7 @@ describe('officer form: happy path with the live camera', () => {
 
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     await expect(page.getByText(/^EKZ-JPR-[2-9A-HJKMNP-Z]{7}$/)).toBeVisible();
 
     expect(fake.state.entries).toHaveLength(1);
@@ -180,7 +182,8 @@ describe('officer form: happy path with the live camera', () => {
       lng: 75.788,
       photo_source: 'camera',
       consent_checked: true,
-      status: 'saved',
+      status: 'ready',
+      pdf_path: `${e.id}.pdf`,
     });
     expect(e.phone_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(e.phone_hash)).not.toContain('9876543210');
@@ -208,9 +211,10 @@ describe('officer form: happy path with the live camera', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     await page.goto(`${APP_URL}/officer`);
     await expect(page.getByText(/EKZ-JPR-/)).toBeVisible();
-    await expect(page.getByText(/Saved/)).toBeVisible();
+    await expect(page.getByText(/Ready to send/)).toBeVisible();
     await expect(page.getByText('Ravi')).toHaveCount(0);
     await expect(page.getByText('9876543210')).toHaveCount(0);
   });
@@ -223,6 +227,7 @@ describe('officer form: happy path with the live camera', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     expect(fake.state.entries[0]).toMatchObject({
       photo_source: 'none',
       consent_checked: false,
@@ -286,6 +291,7 @@ describe('officer form: validation', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     expect(fake.state.entries[0]).toMatchObject({ violation: 'other', other_text: 'No indicator' });
   });
 
@@ -327,6 +333,7 @@ describe('officer form: GPS denied', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     expect(fake.state.entries[0]).toMatchObject({
       location_source: 'manual',
       lat: null,
@@ -369,6 +376,7 @@ describe('officer form: gallery fallback', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
 
     expect(fake.state.entries[0]).toMatchObject({
       photo_source: 'gallery',
@@ -416,6 +424,7 @@ describe('officer form: bad network', () => {
 
     await page.getByRole('button', { name: /Send again/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
     expect(fake.state.entries).toHaveLength(1);
     expect(fake.state.audit.filter((a) => a.action === 'entry_created')).toHaveLength(1);
   });
@@ -429,6 +438,7 @@ describe('officer form: protections', () => {
     await page.getByRole('button', { name: /Next/ }).click();
     await page.getByRole('button', { name: /Send certificate/ }).click();
     await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
 
     await page.getByRole('button', { name: /New entry/ }).click();
     await expect(page.getByText('Location confirmed')).toBeVisible();
@@ -469,5 +479,115 @@ describe('officer form: protections', () => {
     expect((await post('https://evil.example')).status).toBe(403);
     expect((await post(APP_URL)).status).toBe(400); // same origin, but invalid data: refused, not a crash
     expect(fake.state.entries).toHaveLength(0);
+  });
+});
+
+describe('certificate PDF', () => {
+  it('is created after the entry is saved, with the right content, and the entry becomes ready', async () => {
+    const page = await phone();
+    await openForm(page);
+    await fillBasics(page);
+    await page.getByRole('button', { name: /Open camera/ }).click();
+    await page.getByRole('button', { name: /Capture/ }).click();
+    await page.check('#consent');
+    await page.getByRole('button', { name: /Next/ }).click();
+    await page.getByRole('button', { name: /Send certificate/ }).click();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
+
+    const entry = fake.state.entries[0]!;
+    expect(entry).toMatchObject({ status: 'ready', pdf_path: `${entry.id}.pdf`, error_code: null });
+    expect(fake.state.pdfs).toHaveLength(1);
+    const pdf = fake.state.pdfs[0]!.bytes;
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.length).toBeLessThan(1.5 * 1024 * 1024);
+    expect(pdfInfo(pdf).Pages).toBe('1');
+    expect(pdfInfo(pdf).Title).toContain(String(entry.cert_code));
+    const text = pdfText(pdf);
+    for (const s of [
+      'RAVI KUMAR',
+      'Riding without a helmet',
+      'Sample Chauraha, Jaipur, Rajasthan',
+      String(entry.cert_code),
+      'Wear your helmet. Someone is waiting for you at home.',
+      'Disclaimer:',
+    ]) {
+      expect(text, s).toContain(s);
+    }
+    // The rotated stamp and watermark extract letter by letter; compare letters only.
+    const letters = text.replace(/[^A-Za-z]/g, '').toUpperCase();
+    expect(letters).toContain('NOTALEGALDOCUMENT');
+    expect(letters).toContain('FORAWARENESSPURPOSEONLYHYPOTHETICAL');
+    expect(text).not.toMatch(/police/i);
+    expect(fake.state.audit.map((a) => a.action)).toEqual([
+      'login',
+      'entry_created',
+      'certificate_generated',
+    ]);
+    expect(JSON.stringify(fake.state.audit)).not.toMatch(/Ravi|9876543210|Chauraha/);
+  });
+
+  it('asking again does not create a second PDF', async () => {
+    const page = await phone();
+    await openForm(page);
+    await fillBasics(page);
+    await page.getByRole('button', { name: /Next/ }).click();
+    await page.getByRole('button', { name: /Send certificate/ }).click();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
+    const id = String(fake.state.entries[0]!.id);
+    const again = await page.evaluate(async (entryId) => {
+      const r = await fetch(`/api/entries/${entryId}/certificate`, { method: 'POST' });
+      return { status: r.status, body: await r.json() };
+    }, id);
+    expect(again).toEqual({ status: 200, body: { status: 'ready' } });
+    expect(fake.state.audit.filter((a) => a.action === 'certificate_generated')).toHaveLength(1);
+  });
+
+  it('offers to try again if the certificate request fails, and the entry is not lost', async () => {
+    const page = await phone();
+    await openForm(page);
+    await fillBasics(page);
+    await page.getByRole('button', { name: /Next/ }).click();
+    let first = true;
+    await page.route('**/api/entries/*/certificate', async (route) => {
+      if (first) {
+        first = false;
+        await route.abort('failed');
+      } else {
+        await route.continue();
+      }
+    });
+    await page.getByRole('button', { name: /Send certificate/ }).click();
+    await expect(page.getByText('Entry saved')).toBeVisible();
+    await expect(alertBox(page)).toContainText('No network');
+    expect(fake.state.entries).toHaveLength(1);
+    expect(fake.state.pdfs).toHaveLength(0);
+    await page.getByRole('button', { name: /Try again/ }).click();
+    await expect(page.getByText('Certificate ready')).toBeVisible();
+    expect(fake.state.pdfs).toHaveLength(1);
+    expect(fake.state.entries[0]).toMatchObject({ status: 'ready' });
+  });
+
+  it("refuses someone else's, unknown and malformed entry ids, and a request from another site", async () => {
+    const page = await phone();
+    await openForm(page);
+    const cookie = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ');
+    const post = (id: string, origin: string | null = APP_URL) =>
+      fetch(`${APP_URL}/api/entries/${id}/certificate`, {
+        method: 'POST',
+        headers: { cookie, ...(origin ? { origin } : {}) },
+      });
+    const other = '22222222-2222-4222-8222-222222222222';
+    fake.state.entries.push({
+      id: other,
+      officer_id: 'someone-else',
+      status: 'saved',
+      cert_code: 'X',
+    });
+    expect((await post('not-a-uuid')).status).toBe(404);
+    expect((await post('11111111-1111-4111-8111-111111111111')).status).toBe(404);
+    expect((await post(other)).status).toBe(404);
+    expect(fake.state.entries[0]!.status).toBe('saved'); // not touched
+    expect((await post(other, 'https://evil.example')).status).toBe(403);
+    expect((await post(other, null)).status).toBe(403);
   });
 });

@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { OTHER_CHOICE_KEYS, VIOLATION_KEYS } from '@/config/violations';
 import { isInIndia, round3 } from '@/lib/domain/geo';
 import { normalizeIndianMobile } from '@/lib/domain/phone';
+import { NAME_RE, PLACE_RE } from '@/lib/domain/text';
 
-/** Letters (any script), combining marks, spaces, dot, apostrophe, hyphen. No digits, emoji or markup. */
-const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u;
-const OTHER_TEXT_RE = /^[\p{L}\p{M}\p{N} .,'’/()-]+$/u;
+/** Names and places are limited to scripts the certificate fonts cover (Latin, Devanagari). */
+const OTHER_TEXT_RE = /^[\p{Script=Latin}\p{Script=Devanagari}\p{M}\p{N} .,'’/()-]+$/u;
 
 export const nameSchema = z
   .string()
@@ -34,11 +34,11 @@ const locationSchema = z.discriminatedUnion('source', [
     source: z.literal('gps'),
     lat: z.number().finite().transform(round3),
     lng: z.number().finite().transform(round3),
-    areaName: z.string().trim().min(2).max(120),
+    areaName: z.string().trim().min(2).max(120).regex(PLACE_RE),
   }),
   z.strictObject({
     source: z.literal('manual'),
-    areaName: z.string().trim().min(2).max(120),
+    areaName: z.string().trim().min(2).max(120).regex(PLACE_RE),
   }),
 ]);
 

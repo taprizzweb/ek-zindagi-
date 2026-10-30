@@ -45,8 +45,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Certificate PDF tests (Playwright Chromium)
+        run: npm run test:pdf
+      - name: Certificate PDF tests (serverless Chromium, as on Vercel)
+        run: npm run test:pdf
+        env:
+          PDF_TEST_SERVERLESS: '1'

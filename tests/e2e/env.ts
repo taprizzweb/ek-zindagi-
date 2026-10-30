@@ -1,3 +1,5 @@
+import { chromium } from 'playwright';
+
 export const FAKE_SUPABASE_PORT = 54399;
 export const APP_PORT = 3199;
 export const APP_URL = `http://127.0.0.1:${APP_PORT}`;
@@ -11,4 +13,5 @@ export const appEnv = {
   INACTIVITY_MINUTES: '30',
   ALLOW_GALLERY_FALLBACK: 'true',
   GEOCODER: 'none',
+  CHROMIUM_EXECUTABLE_PATH: process.env.CHROMIUM_EXECUTABLE_PATH ?? chromium.executablePath(),
 };

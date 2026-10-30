@@ -469,3 +469,155 @@ describe('intake constraints (migration 2)', () => {
     );
   });
 });
+
+describe('certificate lifecycle (migration 3)', () => {
+  const E = '50000000-0000-4000-8000-000000000001';
+  const ins = (id: string, status = 'saved', extra = '') =>
+    q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, area_name, person_name ${extra ? ', ' + extra.split('=')[0] : ''})
+       values ($1::uuid, 'EKZ-C-' || substr(md5($1::text), 1, 8), $2, 'helmet', 'manual', $3, 'Station Road', 'Ravi Kumar' ${extra ? ', ' + extra.split('=')[1] : ''})`,
+      [id, OFFICER1, status],
+    );
+  const claim = (id: string) =>
+    as(
+      'service_role',
+      null,
+      async () => (await q('select * from public.claim_certificate($1)', [id])).rows,
+    );
+
+  it('claims a saved entry once; a second caller is told it is already being generated', async () => {
+    await ins(E);
+    const first = await as('service_role', null, async () => {
+      const a = (await q('select * from public.claim_certificate($1)', [E])).rows[0];
+      const b = (await q('select * from public.claim_certificate($1)', [E])).rows[0];
+      return { a, b };
+    });
+    expect(first.a).toMatchObject({
+      claimed: true,
+      status: 'generating',
+      person_name: 'Ravi Kumar',
+      area_name: 'Station Road',
+      violation: 'helmet',
+      officer_id: OFFICER1,
+    });
+    expect(first.b).toMatchObject({ claimed: false, status: 'generating' });
+  });
+
+  it('is atomic across connections: only one of many simultaneous callers wins', async () => {
+    const id = '50000000-0000-4000-8000-000000000002';
+    await ins(id);
+    const clients = await Promise.all(
+      Array.from({ length: 8 }, async () => {
+        const c = new pg.Client({ connectionString: inject('dbUrl') });
+        await c.connect();
+        await c.query('set role service_role');
+        return c;
+      }),
+    );
+    try {
+      const results = await Promise.all(
+        clients.map((c) => c.query('select claimed from public.claim_certificate($1)', [id])),
+      );
+      expect(results.filter((r) => r.rows[0].claimed).length).toBe(1);
+    } finally {
+      await Promise.all(clients.map((c) => c.end()));
+    }
+  });
+
+  it('can claim a failed entry again', async () => {
+    const id = '50000000-0000-4000-8000-000000000003';
+    await ins(id, 'failed');
+    expect((await claim(id))[0]).toMatchObject({ claimed: true });
+  });
+
+  it('can take over a render that has been stuck for over two minutes, but not a fresh one', async () => {
+    const id = '50000000-0000-4000-8000-000000000004';
+    await ins(id, 'generating');
+    expect((await claim(id))[0]).toMatchObject({ claimed: false, status: 'generating' });
+    await q(
+      `update public.entries set status_changed_at = now() - interval '3 minutes' where id = $1`,
+      [id],
+    );
+    const [takeOver, again] = await as('service_role', null, async () => [
+      (await q('select * from public.claim_certificate($1)', [id])).rows[0],
+      (await q('select * from public.claim_certificate($1)', [id])).rows[0],
+    ]);
+    expect(takeOver).toMatchObject({ claimed: true });
+    expect(again).toMatchObject({ claimed: false }); // the take-over reset the clock
+  });
+
+  it('does not touch an entry that is already ready, and reports its status', async () => {
+    const id = '50000000-0000-4000-8000-000000000005';
+    await ins(id, 'ready', `pdf_path='${id}.pdf'`);
+    expect((await claim(id))[0]).toMatchObject({ claimed: false, status: 'ready' });
+  });
+
+  it('refuses an entry whose data was already deleted', async () => {
+    const id = '50000000-0000-4000-8000-000000000006';
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, purged_at) values ($1, 'EKZ-C-purged01', $2, 'helmet', 'manual', now())`,
+      [id, OFFICER1],
+    );
+    expect((await claim(id))[0]).toMatchObject({ claimed: false, purged: true, person_name: null });
+  });
+
+  it('returns nothing for an unknown id', async () => {
+    expect(await claim('50000000-0000-4000-8000-0000000000ff')).toEqual([]);
+  });
+
+  it('browser roles cannot claim', async () => {
+    await as('authenticated', OFFICER1, () =>
+      denied(q('select * from public.claim_certificate($1)', [E])),
+    );
+    await as('anon', null, () => denied(q('select * from public.claim_certificate($1)', [E])));
+  });
+
+  it('a ready entry must have a PDF (unless purged)', async () => {
+    await denied(
+      q(
+        `insert into public.entries (cert_code, officer_id, violation, location_source, status) values ('EKZ-C-nopdf001', $1, 'helmet', 'manual', 'ready')`,
+        [OFFICER1],
+      ),
+      /entries_ready_has_pdf/,
+    );
+    for (const s of ['sending', 'sent', 'delivered', 'read']) {
+      await denied(
+        q(
+          `insert into public.entries (cert_code, officer_id, violation, location_source, status) values ('EKZ-C-nopdf002', $1, 'helmet', 'manual', '${s}')`,
+          [OFFICER1],
+        ),
+        /entries_ready_has_pdf/,
+      );
+    }
+  });
+
+  it('records when the status last changed', async () => {
+    const id = '50000000-0000-4000-8000-000000000007';
+    await ins(id);
+    await q(`update public.entries set status_changed_at = '2020-01-01' where id = $1`, [id]);
+    await q(`update public.entries set reviewed = true where id = $1`, [id]);
+    expect(
+      (
+        await q(
+          "select status_changed_at < now() - interval '1 year' as old from public.entries where id = $1",
+          [id],
+        )
+      ).rows[0].old,
+    ).toBe(true);
+    await q(`update public.entries set status = 'failed' where id = $1`, [id]);
+    expect(
+      (
+        await q(
+          "select status_changed_at > now() - interval '1 minute' as fresh from public.entries where id = $1",
+          [id],
+        )
+      ).rows[0].fresh,
+    ).toBe(true);
+  });
+
+  it('accepts the new audit actions', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('certificate_generated', '{"ms": 900, "kb": 120}'), ('certificate_failed', '{"stage": "render"}')`,
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import { round3 } from '@/lib/domain/geo';
+import { isPrintablePlace } from '@/lib/domain/text';
 
 interface Component {
   long_name: string;
@@ -31,7 +32,8 @@ export function parseGoogleGeocode(body: unknown): string | null {
   ].filter((p): p is string => Boolean(p));
   const unique = parts.filter((p, i) => parts.indexOf(p) === i);
   const name = unique.join(', ').slice(0, 120);
-  return name.length >= 2 ? name : null;
+  // A name the certificate cannot print is dropped; the officer types the place instead.
+  return name.length >= 2 && isPrintablePlace(name) ? name : null;
 }
 
 export type FetchLike = (

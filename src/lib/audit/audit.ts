@@ -10,7 +10,9 @@ export type AuditAction =
   | 'officer_disabled'
   | 'officer_enabled'
   | 'officer_password_reset'
-  | 'entry_created';
+  | 'entry_created'
+  | 'certificate_generated'
+  | 'certificate_failed';
 
 /** Keep in step with the audit_meta_no_personal_keys constraint in the first migration. */
 export const FORBIDDEN_AUDIT_KEYS = [
