@@ -137,8 +137,7 @@ The date and time on the certificate is the **server's** time of record, not the
 
 - **Nothing about a person is kept.** In cloud API mode, the moment WhatsApp accepts the message the server
   deletes the PDF and the photo (and checks they are gone) and clears the name, the number and the number hash. What
-  stays is a row of **counts**: team, violation, area, time and status. A sweep every 10 minutes
-  (`/api/cron/retention`, see `vercel.json`) catches anything that missed, and entries that were never sent (a failure
+  stays is a row of **counts**: team, violation, area, time and status. A sweep (`/api/cron/retention`, daily on the free plan, see `vercel.json`) catches anything that missed, and entries that were never sent (a failure
   waiting for a retry) are deleted when their expiry passes (24 hours by default). A file that cannot be deleted keeps
   its entry, which is tried again on the next sweep. Every sweep writes an audit entry with counts, and a self-check
   reports anything overdue or left over. Bridge mode keeps the PDF for its 24-hour link and is only a fallback.
@@ -147,9 +146,7 @@ The date and time on the certificate is the **server's** time of record, not the
 - **`COOKIE_SECRET` is required in production** (the server refuses to start without it): it signs the cookie a team
   phone gets from its link.
 - **`CRON_SECRET` is required in production** (the server refuses to start without it), because the job
-  cannot run without it. Ten-minute and five-minute schedules need a Vercel plan that allows them; on a plan
-  that does not, use Supabase `pg_cron` or an external scheduler to call the two `/api/cron/*` routes with
-  the bearer secret.
+  cannot run without it. `vercel.json` runs both jobs once a day (the free Hobby plan allows nothing more frequent); for tighter schedules use a paid plan or an external scheduler that calls the two `/api/cron/*` routes with the bearer secret.
 - **Dashboard** (for the admin; supervisor accounts also get it): pause or resume the campaign (one tap and a confirmation), counts for today and the
   week by officer and by violation, CSV of the counts, failures with a readable reason and a **Retry**
   button (cloud API mode, and only while the PDF still exists; an unknown-outcome failure asks for

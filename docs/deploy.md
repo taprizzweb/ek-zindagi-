@@ -41,7 +41,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAGE_LANGUAGE` and `GEOCODER` (`none` means officers type the place).
 
 3. Custom domain with https (Vercel does the certificate). The app sets HSTS, so use a domain you will keep.
-4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` (every 10 minutes) and `/api/cron/delivery-retry` (every 5 minutes). Vercel sends `Authorization: Bearer $CRON_SECRET` itself. **Check your plan allows those schedules**: the free (Hobby) plan allows daily jobs only, and the deploy will be refused. Without a suitable plan, call both routes from Supabase `pg_cron` / `pg_net` or another scheduler with the same bearer header.
+4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` and `/api/cron/delivery-retry` **once a day**, so it deploys on the free (Hobby) plan (Hobby refuses anything more frequent and the deploy fails). The main deletion already happens immediately when a message is sent; the daily job only sweeps leftovers and retries failed sends. For every-5-minute runs, either use a Vercel plan that allows it, or point a free external scheduler (for example cron-job.org) at both URLs with the header `Authorization: Bearer <CRON_SECRET>`. Vercel sends that header itself for its own cron jobs.
 5. Certificate PDFs use a headless Chromium inside the function. If PDF generation times out or runs out of memory, raise the function memory for `/api/entries/[id]/certificate` in the Vercel project settings (the route allows 60 seconds).
 6. Deploy.
 
