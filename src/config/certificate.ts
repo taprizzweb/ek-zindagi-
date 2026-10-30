@@ -17,7 +17,7 @@ export const CERTIFICATE_TEXT = {
   alive: 'alive',
   lastSeenSuffix: 'on',
   dateLabel: 'Date & time',
-  placeLabel: 'Last seen alive',
+  placeLabel: 'At',
   committing: 'while committing this traffic offence:',
   issuedAt: 'Issued at Jaipur',
   centreLine: 'The next frame will not be a joke.',

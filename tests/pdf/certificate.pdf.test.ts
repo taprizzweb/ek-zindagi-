@@ -28,6 +28,8 @@ const UPDATE = process.env.UPDATE_SNAPSHOTS === '1';
 const FRAME_AREA = { x: 48, y: 250, w: 430, h: 410 };
 /** The logo image was replaced with the final one, so it is not compared with the reference either. */
 const LOGO_AREA = { x: 40, y: 36, w: 140, h: 130 };
+/** The place label now reads "At" (it said "Last seen alive", which the headline sentence already says). */
+const PLACE_LABEL = { x: 780, y: 398, w: 280, h: 28 };
 const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
 
 /** The letters of a string, upper-cased: robust against how the PDF text extractor spaces rotated text. */
@@ -251,10 +253,13 @@ describe('long text fits (auto-shrink)', () => {
     const ref = readPng('reference/certificate_v2.png');
     const d = blockDifference(ours, ref, {
       block: 8,
-      ignore: [FRAME_AREA, { x: 470, y: 400, w: 600, h: 120 }],
+      ignore: [FRAME_AREA, PLACE_LABEL, { x: 470, y: 400, w: 600, h: 120 }],
     });
     expect(d.ratio).toBeLessThan(0.025);
-    const dateAndPlace = blockDifference(ours, ref, { block: 8, ignore: [FRAME_AREA] });
+    const dateAndPlace = blockDifference(ours, ref, {
+      block: 8,
+      ignore: [FRAME_AREA, PLACE_LABEL],
+    });
     expect(dateAndPlace.ratio).toBeLessThan(0.025);
   });
 });
@@ -347,7 +352,12 @@ describe('PNG export (Download image)', () => {
     const half = await sharp(png).resize(1123, 794).png().toBuffer();
     const d = blockDifference(PNG.sync.read(half), readPng('reference/certificate_v2.png'), {
       block: 8,
-      ignore: [FRAME_AREA, { x: 100, y: 172, w: 940, h: 34 }, { x: 790, y: 708, w: 290, h: 34 }],
+      ignore: [
+        FRAME_AREA,
+        PLACE_LABEL,
+        { x: 100, y: 172, w: 940, h: 34 },
+        { x: 790, y: 708, w: 290, h: 34 },
+      ],
     });
     // A screenshot of the same page: it matches the approved PNG almost pixel for pixel.
     expect(d.ratio).toBeLessThan(0.005);
@@ -366,6 +376,7 @@ describe('visual regression against the approved design', () => {
       block: 8,
       ignore: [
         FRAME_AREA,
+        PLACE_LABEL,
         { x: 100, y: 172, w: 940, h: 34 }, // subtitle: "Issued by Jaipur Traffic Police" -> campaign wording
         { x: 790, y: 708, w: 290, h: 34 }, // signature line
       ],
@@ -376,7 +387,10 @@ describe('visual regression against the approved design', () => {
 
   it('with police branding and logo: matches reference/certificate_v2_logo.png outside the frame and logo', async () => {
     const ours = rasterize(await createCertificatePdf(approved, POLICE));
-    const d = blockDifference(ours, REF_LOGO, { block: 8, ignore: [FRAME_AREA, LOGO_AREA] });
+    const d = blockDifference(ours, REF_LOGO, {
+      block: 8,
+      ignore: [FRAME_AREA, PLACE_LABEL, LOGO_AREA],
+    });
     process.stderr.write(`v2 + logo: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
     expect(d.ratio).toBeLessThan(0.025);
   });
