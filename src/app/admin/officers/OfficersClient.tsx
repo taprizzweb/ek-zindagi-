@@ -38,7 +38,7 @@ export default function OfficersClient({ officers }: { officers: OfficerRow[] })
   const [creds, setCreds] = useState<Credentials | null>(null);
   const [confirming, setConfirming] = useState<{
     id: string;
-    action: 'disable' | 'reset_password';
+    action: 'disable' | 'reset_password' | 'reset_mfa';
   } | null>(null);
 
   async function create(e: FormEvent<HTMLFormElement>) {
@@ -70,7 +70,7 @@ export default function OfficersClient({ officers }: { officers: OfficerRow[] })
     setBusy(false);
   }
 
-  async function act(o: OfficerRow, action: 'disable' | 'enable' | 'reset_password') {
+  async function act(o: OfficerRow, action: 'disable' | 'enable' | 'reset_password' | 'reset_mfa') {
     setBusy(true);
     setError(null);
     setConfirming(null);
@@ -177,7 +177,9 @@ export default function OfficersClient({ officers }: { officers: OfficerRow[] })
                           <p>
                             {confirming.action === 'disable'
                               ? `${o.officerCode} (${o.displayName}) को बंद करें? / Disable ${o.officerCode}?`
-                              : `${o.officerCode} का पासवर्ड रीसेट करें? / Reset password for ${o.officerCode}?`}
+                              : confirming.action === 'reset_mfa'
+                                ? `${o.officerCode} का सुरक्षा कोड सेट-अप हटाएँ (फ़ोन खोया)? अगली बार नया सेट-अप होगा। / Clear the security-code set-up for ${o.officerCode} (lost phone)? They set it up again at the next sign-in.`
+                                : `${o.officerCode} का पासवर्ड रीसेट करें? / Reset password for ${o.officerCode}?`}
                           </p>
                           <div className="flex gap-2">
                             <Button
@@ -187,7 +189,9 @@ export default function OfficersClient({ officers }: { officers: OfficerRow[] })
                             >
                               {confirming.action === 'disable'
                                 ? `बंद करें / Disable ${o.officerCode}`
-                                : 'रीसेट / Reset'}
+                                : confirming.action === 'reset_mfa'
+                                  ? 'सेट-अप हटाएँ / Clear set-up'
+                                  : 'रीसेट / Reset'}
                             </Button>
                             <Button variant="secondary" onClick={() => setConfirming(null)}>
                               रद्द / Cancel
@@ -220,6 +224,15 @@ export default function OfficersClient({ officers }: { officers: OfficerRow[] })
                           >
                             पासवर्ड रीसेट / Reset password
                           </Button>
+                          {o.role === 'supervisor' ? (
+                            <Button
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => setConfirming({ id: o.id, action: 'reset_mfa' })}
+                            >
+                              सुरक्षा कोड रीसेट / Reset security code
+                            </Button>
+                          ) : null}
                         </div>
                       )}
                     </td>

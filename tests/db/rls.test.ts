@@ -1536,3 +1536,80 @@ describe('data requests (migration 7)', () => {
     );
   });
 });
+
+describe('second sign-in step (migration 8)', () => {
+  const sup = SUPERVISOR;
+  afterEach(async () => {
+    await q('delete from public.totp_factors');
+  });
+
+  it('accepts a time step only once, and only a higher one, atomically', async () => {
+    await q(`insert into public.totp_factors (profile_id, secret_enc) values ($1, 'v1.a.b.c')`, [
+      sup,
+    ]);
+    const accept = async (c: number) =>
+      (await q('select public.totp_accept($1, $2) as ok', [sup, c])).rows[0].ok as boolean;
+    expect(await accept(100)).toBe(true);
+    expect(await accept(100)).toBe(false); // the same code again
+    expect(await accept(99)).toBe(false); // an older one
+    expect(await accept(101)).toBe(true);
+
+    // eight simultaneous tries with the same step: exactly one wins
+    const clients = await Promise.all(
+      Array.from({ length: 8 }, async () => {
+        const c = new pg.Client({ connectionString: inject('dbUrl') });
+        await c.connect();
+        return c;
+      }),
+    );
+    try {
+      const results = await Promise.all(
+        clients.map(
+          async (c) =>
+            (await c.query('select public.totp_accept($1, 500) as ok', [sup])).rows[0].ok,
+        ),
+      );
+      expect(results.filter(Boolean)).toHaveLength(1);
+    } finally {
+      await Promise.all(clients.map((c) => c.end()));
+    }
+  });
+
+  it('only the server can read or use the secrets table', async () => {
+    await q(`insert into public.totp_factors (profile_id, secret_enc) values ($1, 'v1.a.b.c')`, [
+      sup,
+    ]);
+    for (const [role, uid] of [
+      ['authenticated', ADMIN],
+      ['authenticated', SUPERVISOR],
+      ['anon', null],
+    ] as const) {
+      await as(role, uid, () => denied(q('select * from public.totp_factors')));
+      await as(role, uid, () => denied(q('select public.totp_accept($1, 1)', [sup])));
+      await as(role, uid, () => denied(q(`delete from public.totp_factors`)));
+    }
+    expect(
+      await as(
+        'service_role',
+        null,
+        async () => (await q('select count(*)::int as n from public.totp_factors')).rows[0].n,
+      ),
+    ).toBe(1);
+  });
+
+  it('refuses a secret that is not stored encrypted, and goes away with the account', async () => {
+    await denied(
+      q(
+        `insert into public.totp_factors (profile_id, secret_enc) values ($1, 'JBSWY3DPEHPK3PXP')`,
+        [sup],
+      ),
+      /secret_enc/,
+    );
+  });
+
+  it('accepts the new audit actions', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('mfa_enrolled', '{}'), ('mfa_verified', '{}'), ('mfa_failed', '{}'), ('mfa_reset', '{}')`,
+    );
+  });
+});

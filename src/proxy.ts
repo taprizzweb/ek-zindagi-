@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { ACTIVITY_COOKIE, activityCookieOptions } from '@/lib/auth/activity';
+import { MFA_COOKIE } from '@/lib/auth/mfa-crypto';
 import { isSessionExpired, parseActivityCookie } from '@/lib/domain/session-expiry';
 import { authCookieOptions } from '@/lib/supabase/cookie-options';
 
@@ -76,6 +77,7 @@ export async function proxy(request: NextRequest) {
       : NextResponse.redirect(new URL(reason ? `/login?reason=${reason}` : '/login', request.url));
     for (const c of response.cookies.getAll()) res.cookies.set(c);
     res.cookies.delete(ACTIVITY_COOKIE);
+    res.cookies.delete(MFA_COOKIE);
     res.headers.set('Cache-Control', 'no-store');
     return res;
   };

@@ -20,9 +20,29 @@ bundle, no personal data in server logs).
 - **Load.** Sized for a pilot (a few hundred certificates a week). No load test was run.
 - **Accessibility.** An automated audit (labels, touch size, contrast, focus) plus the checks in the manual test. No test with real screen-reader users.
 
+## 1b. Security: what is protected, and what is not
+
+No system can be promised unhackable, and this one has not had an independent security test. What it does:
+strict headers and a nonce-based content policy; sign-in with a per-address **and per-account** attempt limit;
+a second step (authenticator app) for supervisors and admins on every sign-in, where a code works only once;
+accounts that can be disabled at once; every write checked for a signed-in role and the same origin; every input validated
+and unknown fields refused; personal data kept in server-only columns and deleted within a day; an append-only audit log
+with no personal data; no secrets in the browser; a test that fails if any API route stops refusing strangers; weekly
+dependency updates and a build that fails on a high-severity dependency issue.
+
+What it cannot stop, and you must handle by other means:
+
+- **Someone who gets the hosting or database accounts** (Vercel, Supabase, Meta). Protect those with their own two-step sign-in, at least two named owners, and no shared passwords.
+- **A stolen, unlocked officer phone.** The officer account works until an admin disables it (runbook section 4). Phones need a screen lock.
+- **Phishing and shoulder-surfing** of an officer's password. The second step covers supervisors and admins only: officers sign in with password alone (a deliberate choice, for speed in the field).
+- **Anyone with the certificate link** in bridge mode for 24 hours.
+- **Mistakes by people:** a wrong number typed, a message to a person who should not receive it.
+- **Overload** (a flood of requests) beyond what the host's own protection and the rate limits absorb.
+- **Flaws not yet found** in this code or in the libraries and services it uses. Get an independent penetration test before a wide rollout, and fix what it finds.
+
 ## 2. Not built
 
-- **Two-step sign-in (TOTP) for supervisors and admins.** The master prompt asks for it as optional. It is not implemented: those accounts use email and password with the inactivity limit. Recommend adding it before the supervisors' screen is used outside the pilot.
+- **Recovery codes for the second step.** Supervisors and admins sign in with an authenticator-app code. If a supervisor loses the phone, an admin clears their set-up. If the **only admin** loses the phone, someone with the service-role key runs `npm run reset:mfa` (see the runbook). There are no printed backup codes.
 - **Phone OTP sign-in** for officers (deferred on purpose: SMS cost and registration).
 - **A rule for how long the non-personal records are kept.** Codes, violation, rounded location, officer and timestamps are kept with no automatic deletion. The audit log and opt-out hashes are meant to be permanent. Decide a period.
 - **An age check.** The form does not ask the person's age.

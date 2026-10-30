@@ -27,7 +27,11 @@ export type AuditAction =
   | 'campaign_paused'
   | 'campaign_resumed'
   | 'entry_purged_early'
-  | 'opt_out_added';
+  | 'opt_out_added'
+  | 'mfa_enrolled'
+  | 'mfa_verified'
+  | 'mfa_failed'
+  | 'mfa_reset';
 
 /** Keep in step with the audit_meta_no_personal_keys constraint in the first migration. */
 export const FORBIDDEN_AUDIT_KEYS = [

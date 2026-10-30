@@ -144,6 +144,7 @@ The date and time on the certificate is the **server's** time of record, not the
   stay (the hash is only for the duplicate check and the opt-out list). Every run writes an audit entry
   with counts, and a self-check reports anything overdue or left over; the supervisor screen turns red when
   the job has not run for three hours.
+- **`MFA_SECRET` is required in production** (the server refuses to start without it): it encrypts the supervisors' and admins' authenticator secrets and signs the "second step passed" cookie.
 - **`CRON_SECRET` is required in production** (the server refuses to start without it), because the job
   cannot run without it. Hourly and five-minute schedules need a Vercel plan that allows them; on a plan
   that does not, use Supabase `pg_cron` or an external scheduler to call the two `/api/cron/*` routes with
@@ -160,6 +161,17 @@ The date and time on the certificate is the **server's** time of record, not the
   or the saved setting. It stops sends in both delivery modes and the background retry job.
 
 ### Hardening and requests from citizens (milestone 7)
+
+- **Second sign-in step for supervisors and admins.** After the password they enter the 6-digit code from an
+  authenticator app, every time they sign in. The first sign-in shows a QR code and sets the app up. The secret is
+  stored encrypted and bound to the account; a code works once (replay refused, atomically in the database); six wrong
+  codes in ten minutes lock the step for the rest of the window; the proof is a signed HttpOnly cookie tied to the
+  account and dropped at every sign-in, sign-out and timeout. Until the code is entered, every page goes to the code page
+  and every API answers 403. An admin clears a supervisor's set-up from Officer accounts; `npm run reset:mfa` clears
+  an admin's. Officers sign in with a password only. **Password guessing** is limited per address (20 per 15 minutes) and
+  per account (10 per 15 minutes).
+- Messages (the WhatsApp text and the template's safety line) carry **Hindi and English together**; there is no language
+  setting. The certificate itself is unchanged.
 
 - **Security checks on the production build** (`tests/e2e/hardening.e2e.test.ts`): security headers and a
   fresh CSP nonce on every page, no-store caching and no-indexing, `robots.txt`, session cookies that are

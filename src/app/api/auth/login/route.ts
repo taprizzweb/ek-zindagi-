@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { supabaseAuditSink } from '@/lib/audit/audit-supabase';
+import { createHash } from 'node:crypto';
 import { ACTIVITY_COOKIE, activityCookieOptions } from '@/lib/auth/activity';
+import { MFA_COOKIE, mfaCookieOptions } from '@/lib/auth/mfa-crypto';
 import { homePathFor, type Role } from '@/lib/domain/roles';
 import { serverEnv } from '@/lib/env';
 import { AppError } from '@/lib/errors';
@@ -26,6 +28,18 @@ export async function POST(request: Request) {
     if (!allowed) throw new AppError('rate_limited', 429);
 
     const body = loginSchema.parse(await readJson(request));
+    // Per account as well as per address: guessing one person's password from many addresses is slowed too.
+    // Ten tries per quarter hour; the window passes by itself, so this cannot lock anyone out for long.
+    const { data: acctAllowed, error: acctError } = await admin.rpc('rate_limit_hit', {
+      p_key: `login:acct:${createHash('sha256').update(body.email).digest('hex')}`,
+      p_window_seconds: 900,
+      p_max_hits: 10,
+    });
+    if (acctError) throw new AppError('internal', 500);
+    if (!acctAllowed) {
+      await audit.record({ action: 'login_failed', meta: { reason: 'account_throttled' } });
+      throw new AppError('rate_limited', 429);
+    }
     const supabase = await createClient();
     const { data, error } = await supabase.auth.signInWithPassword(body);
     if (error || !data.user) {
@@ -56,6 +70,8 @@ export async function POST(request: Request) {
 
     await audit.record({ action: 'login', actorId: data.user.id, actorCode: profile.officer_code });
     (await cookies()).set(ACTIVITY_COOKIE, String(Date.now()), activityCookieOptions());
+    // A new sign-in always needs the second step again: expire any earlier proof.
+    (await cookies()).set(MFA_COOKIE, '', { ...mfaCookieOptions(), maxAge: 0 });
     return json({
       redirect: profile.must_change_password ? '/change-password' : homePathFor(profile.role),
     });

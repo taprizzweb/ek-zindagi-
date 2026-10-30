@@ -32,10 +32,12 @@ project by the developer: the first deploy is also the first real test. Follow t
    | `PHONE_HASH_SECRET`             | random, 32+ characters. `openssl rand -hex 32`. **Never change it later** (see the runbook) |
    | `APP_BASE_URL`                  | the public https address, no trailing slash                                                 |
    | `CRON_SECRET`                   | random, 32+ characters. Required: the server will not start without it                      |
-   | `DELIVERY_MODE`                 | `bridge` to start                                                                           |
-   | `SHOW_POLICE_BRANDING`          | `true` only with written permission, otherwise `false`                                      |
 
-   Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAGE_LANGUAGE` and `GEOCODER` (`none` means officers type the place).
+| `MFA_SECRET` | random, 32+ characters (`openssl rand -hex 32`). Required: encrypts supervisors' and admins' authenticator secrets. Keep a copy in the password manager: losing it means everyone sets the app up again |
+| `DELIVERY_MODE` | `bridge` to start |
+| `SHOW_POLICE_BRANDING` | `true` only with written permission, otherwise `false` |
+
+Also review `RETENTION_HOURS`, `DEDUPE_HOURS`, `ALLOW_GALLERY_FALLBACK`, `MESSAGE_LANGUAGE` and `GEOCODER` (`none` means officers type the place).
 
 3. Custom domain with https (Vercel does the certificate). The app sets HSTS, so use a domain you will keep.
 4. **Scheduled jobs.** `vercel.json` registers `/api/cron/retention` (hourly) and `/api/cron/delivery-retry` (every 5 minutes). Vercel sends `Authorization: Bearer $CRON_SECRET` itself. **Check your plan allows those schedules**: the free (Hobby) plan allows daily jobs only, and the deploy will be refused. Without a suitable plan, call both routes from Supabase `pg_cron` / `pg_net` or another scheduler with the same bearer header.
@@ -52,7 +54,7 @@ project by the developer: the first deploy is also the first real test. Follow t
 
    It refuses to run if an admin already exists. Remove the key from `.env.local` afterwards.
 
-2. Log in at `/login`, open **Officer accounts**, create the officers and one supervisor. Each gets a one-time temporary password and must change it at the first login. Hand it over in person or by a channel you trust.
+2. Log in at `/login`. As an admin you are asked to set up an authenticator app first: scan the QR code with Google Authenticator, Microsoft Authenticator or similar, and type the 6-digit code. Do this on the admin's own phone and keep the phone safe. Then open **Officer accounts**, create the officers and one supervisor. Each gets a one-time temporary password and must change it at the first login. Hand it over in person or by a channel you trust.
 
 ## 4. Smoke test (before any officer uses it)
 
@@ -60,6 +62,7 @@ Do all of this on production with test data, then use **Requests from citizens**
 
 - [ ] `/login` works; a wrong password is refused; the session ends after `INACTIVITY_MINUTES`.
 - [ ] An officer cannot open `/supervisor` or `/admin`.
+- [ ] A supervisor is asked for the authenticator code at every sign-in; the same code a second time is refused; **Reset security code** (admin) works.
 - [ ] Create an entry with your own number and a photo; the preview, the PDF and the image download look right.
 - [ ] Send: bridge mode opens WhatsApp with a link; the link shows the PDF and stops working after 24 hours (or check the expiry).
 - [ ] Supervisor: counts update, review list shows a gallery entry, **Pause campaign** stops a send, **Resume** restores it.

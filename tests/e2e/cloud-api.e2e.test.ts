@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { startFakeWhatsApp, type FakeWhatsApp, metaError } from '../integration/fake-whatsapp';
 import { FAKE_SUPABASE_PORT, appEnv } from './env';
 import { OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
+import { currentCode, seedMfa } from './mfa-helpers';
 
 /**
  * The real app in cloud_api mode (production build), talking to the fake Supabase and the fake
@@ -34,17 +35,37 @@ async function waitForApp() {
   throw new Error('app did not start');
 }
 
-async function login(who: { email: string; password: string } = OFFICER): Promise<string> {
+async function login(
+  who: { id: string; email: string; password: string } = OFFICER,
+): Promise<string> {
   const res = await fetch(`${URL_}/api/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: URL_ },
     body: JSON.stringify({ email: who.email, password: who.password }),
   });
   expect([res.status, await res.clone().text()]).toEqual([200, expect.any(String)]);
-  return res.headers
-    .getSetCookie()
-    .map((c) => c.split(';')[0])
-    .join('; ');
+  const jar = new Map<string, string>();
+  const take = (r: Response) => {
+    for (const c of r.headers.getSetCookie()) {
+      const [pair] = c.split(';');
+      const i = pair!.indexOf('=');
+      jar.set(pair!.slice(0, i), pair!.slice(i + 1));
+    }
+  };
+  take(res);
+  const header = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+  if (who !== OFFICER) {
+    // Supervisors pass the second step with the code from their authenticator app.
+    seedMfa(fake, who.id);
+    const mfa = await fetch(`${URL_}/api/auth/mfa`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: URL_, cookie: header() },
+      body: JSON.stringify({ code: currentCode(fake, who.id) }),
+    });
+    expect(mfa.status).toBe(200);
+    take(mfa);
+  }
+  return header();
 }
 
 function seedEntry(over: Record<string, unknown> = {}) {

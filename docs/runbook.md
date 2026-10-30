@@ -54,6 +54,17 @@ Officers see the number again before sending ("is this number correct?"), but ty
 4. Create a new account or re-enable the old one with **Reset password** only after the phone is secured.
 5. Review the Audit log for that officer's code since the loss.
 
+### Lost phone of a supervisor or admin (authenticator app)
+
+Supervisors and admins confirm every sign-in with a 6-digit code from an authenticator app.
+
+- **A supervisor** lost the phone: an admin opens Officer accounts and taps **Reset security code** for them. Next sign-in they set the app up again with a new key. Disable the account first if the phone may be in someone else's hands (section 4 steps 1 and 2 apply as well), and reset the password.
+- **An admin** lost the phone: another person with the service-role key runs, on a trusted computer with `.env.local` filled in:
+  `RESET_EMAIL=admin@example.org npm run reset:mfa`
+  then the admin signs in and sets the app up again. Do this only for the real owner of the account (check in person). If the phone may be stolen, also reset their password and review the Audit log (`mfa_*` and `login*` actions).
+- Many `mfa_failed` entries in the Audit log for one account means someone knows the password and is guessing codes: reset the password and look into how it leaked.
+- A person locked out by too many wrong codes (six in ten minutes) or too many password tries (ten per quarter hour) only has to wait; the limit lifts by itself.
+
 ## 5. A secret may have leaked
 
 Rotate first, investigate second. Never paste a secret into chat or email.
@@ -63,6 +74,7 @@ Rotate first, investigate second. Never paste a secret into chat or email.
 | Supabase service-role key    | Vercel env            | Supabase, Settings, API: roll the key, update `SUPABASE_SERVICE_ROLE_KEY`, redeploy. If it leaked, treat all data as exposed: see section 9                                                                                                                                                                          |
 | WhatsApp access token        | Vercel env            | Meta Business settings: create a new system-user token, update `WHATSAPP_TOKEN`, redeploy, revoke the old one                                                                                                                                                                                                        |
 | WhatsApp app secret          | Vercel env            | Meta app settings: reset it, update `WHATSAPP_APP_SECRET`, redeploy (until then webhooks are rejected)                                                                                                                                                                                                               |
+| `MFA_SECRET`                 | Vercel env            | Encrypts the authenticator secrets. Replace it and every supervisor and admin must set the app up again (the old secrets cannot be decrypted): plan for it, then clear their set-up with `npm run reset:mfa` or the admin screen                                                                                     |
 | `CRON_SECRET`                | Vercel env, scheduler | Choose a new random value, update in Vercel and in any external scheduler, redeploy                                                                                                                                                                                                                                  |
 | `PHONE_HASH_SECRET`          | Vercel env            | **Do not rotate casually.** Every stored hash stops matching: the opt-out list would no longer protect anyone and duplicate checks restart. Rotate only if it leaked, and then tell the project lead: opt-out numbers cannot be rebuilt (we never keep the numbers), so people who said STOP could be messaged again |
 | An admin or officer password | Person                | Admin, Officer accounts, **Reset password**; the person logs in with the temporary password and must change it                                                                                                                                                                                                       |

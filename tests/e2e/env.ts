@@ -15,6 +15,7 @@ export const appEnv = {
   GEOCODER: 'none',
   APP_BASE_URL: `http://127.0.0.1:${APP_PORT}`,
   DELIVERY_MODE: 'bridge',
+  MFA_SECRET: 'e2e-mfa-secret-0123456789-abcdefghijkl',
   CRON_SECRET: 'e2e-cron-secret-0123456789-abcdefghij',
   CHROMIUM_EXECUTABLE_PATH: process.env.CHROMIUM_EXECUTABLE_PATH ?? chromium.executablePath(),
 };

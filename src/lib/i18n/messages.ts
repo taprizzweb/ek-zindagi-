@@ -77,6 +77,14 @@ export const ERROR_MESSAGES: Record<ErrorCode, Bilingual> = {
     hi: 'अभियान अभी रोका गया है। कोई संदेश नहीं भेजा जाएगा।',
     en: 'The campaign is paused. No messages are being sent.',
   },
+  mfa_required: {
+    hi: 'पहले सुरक्षा कोड से पुष्टि करें।',
+    en: 'Confirm with your security code first.',
+  },
+  invalid_code: {
+    hi: 'कोड सही नहीं है या पहले इस्तेमाल हो चुका है। ऐप में नया कोड देखें।',
+    en: 'The code is wrong or was already used. Wait for the next code in your app.',
+  },
   internal: {
     hi: 'कुछ गड़बड़ हो गई। आपका डेटा सुरक्षित है, फिर से कोशिश करें।',
     en: 'Something went wrong on our side. Please try again.',

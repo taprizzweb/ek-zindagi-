@@ -39,6 +39,8 @@ export interface FakeState {
   optOuts: string[];
   audit: Row[];
   settings: Row[];
+  totp: Row[];
+  rate: Record<string, number>;
   uploads: { path: string; bytes: Buffer }[];
   pdfs: { path: string; bytes: Buffer }[];
   links: Row[];
@@ -117,6 +119,8 @@ export function freshState(): FakeState {
     optOuts: [],
     audit: [],
     settings: [],
+    totp: [],
+    rate: {},
     uploads: [],
     pdfs: [],
     links: [],
@@ -188,7 +192,42 @@ export async function startFakeSupabase(
     if (path === '/auth/v1/logout') return send(204);
 
     // ---- PostgREST
-    if (path === '/rest/v1/rpc/rate_limit_hit') return send(200, true);
+    if (path === '/rest/v1/rpc/rate_limit_hit') {
+      // Counts hits per key (the window is not modelled: a test lasts seconds) and refuses above the maximum.
+      const a = JSON.parse(body.toString()) as { p_key: string; p_max_hits: number };
+      st.rate[a.p_key] = (st.rate[a.p_key] ?? 0) + 1;
+      return send(200, st.rate[a.p_key]! <= a.p_max_hits);
+    }
+    if (path === '/rest/v1/rpc/totp_accept') {
+      const { p_profile, p_counter } = JSON.parse(body.toString()) as {
+        p_profile: string;
+        p_counter: number;
+      };
+      const f = st.totp.find((r) => r.profile_id === p_profile);
+      if (!f || Number(f.last_counter) >= p_counter) return send(200, false);
+      f.last_counter = p_counter;
+      return send(200, true);
+    }
+    if (path === '/rest/v1/totp_factors') {
+      if (method === 'POST') {
+        const row = JSON.parse(body.toString()) as Row;
+        const i = st.totp.findIndex((r) => r.profile_id === row.profile_id);
+        const ignore = String(req.headers.prefer ?? '').includes('ignore-duplicates');
+        if (i >= 0 && !ignore) Object.assign(st.totp[i]!, row);
+        else if (i < 0) st.totp.push({ confirmed: false, last_counter: 0, ...row });
+        return send(201);
+      }
+      const rows = st.totp.filter((r) => matches(r, url.searchParams));
+      if (method === 'PATCH') {
+        for (const r of rows) Object.assign(r, JSON.parse(body.toString()) as Row);
+        return send(204);
+      }
+      if (method === 'DELETE') {
+        st.totp = st.totp.filter((r) => !rows.includes(r));
+        return send(204);
+      }
+      return send(200, rows);
+    }
     if (path === '/rest/v1/rpc/open_certificate_link') {
       // Mirrors public.open_certificate_link in the migration (tested for real in tests/db).
       const { p_token_hash } = JSON.parse(body.toString()) as { p_token_hash: string };

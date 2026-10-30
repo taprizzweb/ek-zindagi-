@@ -13,15 +13,17 @@ Record the result of each line: Pass / Fail / Not tried, and the phone and brows
 
 ## A. Sign-in and the phone itself
 
-| #   | Check                                                                                                                                        | A   | B   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- |
-| A1  | Open the site address in Chrome. The login page fits the screen without sideways scrolling; text is readable in sunlight at full brightness. |     |     |
-| A2  | Log in as an officer. Wrong password is refused with a clear message.                                                                        |     |     |
-| A3  | Leave the phone locked for 31 minutes, open it: you are asked to log in again.                                                               |     |     |
-| A4  | Add the page to the home screen (optional). It still works.                                                                                  |     |     |
-| A5  | Rotate the phone: nothing is lost or unusable.                                                                                               |     |     |
-| A6  | Turn on TalkBack: fields, buttons and errors are read out sensibly (basic check).                                                            |     |     |
-| A7  | Largest system font size: nothing overlaps or is cut off.                                                                                    |     |     |
+| #   | Check                                                                                                                                                                                                | A   | B   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- |
+| A1  | Open the site address in Chrome. The login page fits the screen without sideways scrolling; text is readable in sunlight at full brightness.                                                         |     |     |
+| A2  | Log in as an officer. Wrong password is refused with a clear message.                                                                                                                                |     |     |
+| A3  | Leave the phone locked for 31 minutes, open it: you are asked to log in again.                                                                                                                       |     |     |
+| A4  | Add the page to the home screen (optional). It still works.                                                                                                                                          |     |     |
+| A5  | Rotate the phone: nothing is lost or unusable.                                                                                                                                                       |     |     |
+| A6  | Turn on TalkBack: fields, buttons and errors are read out sensibly (basic check).                                                                                                                    |     |     |
+| A7  | Largest system font size: nothing overlaps or is cut off.                                                                                                                                            |     |     |
+| A8  | Supervisor and admin: first sign-in shows the QR code; scan it with an authenticator app on a real phone; the code is accepted; the next sign-in asks for a code again and a reused code is refused. |     |     |
+| A9  | Phone clock set 2 minutes wrong (automatic time off): the code is refused (expected). Set it right again and it works.                                                                               |     |     |
 
 ## B. Location (real GPS)
 
