@@ -28,7 +28,7 @@ with problems as (
   select 'browser role can read a server-only table', r.role || ' -> ' || t
     from (values ('anon'), ('authenticated')) as r(role),
          (values ('opt_outs'), ('cert_links'), ('delivery_events'), ('wa_pending_statuses'), ('webhook_events'),
-                 ('settings'), ('totp_factors'), ('rate_limits')) as k(t)
+                 ('settings'), ('access_links'), ('rate_limits')) as k(t)
    where has_table_privilege(r.role, 'public.' || k.t, 'select')
   union all
   select 'browser role can change the audit log', r.role
@@ -50,9 +50,9 @@ with problems as (
      and (has_function_privilege('anon', p.oid, 'execute') or has_function_privilege('authenticated', p.oid, 'execute'))
 
   union all
-  -- 5. all eight migrations were applied (the last ones add these audit actions and tables)
+  -- 5. all ten migrations were applied (the last ones add these audit actions and tables)
   select 'migration missing', m.what
-    from (values ('mfa_reset (migration 8)'), ('entry_purged_early (migration 7)'), ('retention_run (migration 6)'),
+    from (values ('team_link_changed (migration 10)'), ('entry_purged_early (migration 7)'), ('retention_run (migration 6)'),
                  ('delivery_sent (migration 5)'), ('delivery_prepared (migration 4)')) as m(what)
    where not exists (
      select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
@@ -60,7 +60,7 @@ with problems as (
   union all
   select 'table missing', m.t
     from (values ('profiles'), ('entries'), ('audit_log'), ('rate_limits'), ('opt_outs'), ('cert_links'),
-                 ('delivery_events'), ('wa_pending_statuses'), ('webhook_events'), ('settings'), ('totp_factors')) as m(t)
+                 ('delivery_events'), ('wa_pending_statuses'), ('webhook_events'), ('settings'), ('access_links')) as m(t)
    where to_regclass('public.' || m.t) is null
 )
 select * from problems
