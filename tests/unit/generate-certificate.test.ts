@@ -235,7 +235,7 @@ describe('failures', () => {
         actorId: 'officer-1',
         actorCode: 'JP-0001',
         entryId: 'e1',
-        meta: { stage: 'render' },
+        meta: { stage: 'render', reason: 'pdf_failed' },
       },
     ]);
   });
