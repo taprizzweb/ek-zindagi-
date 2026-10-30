@@ -80,3 +80,15 @@ export function whatsappUrl(phoneE164: string, text: string): string {
   const digits = phoneE164.replace(/\D/g, '');
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
+
+/**
+ * The three values of the approved WhatsApp template body (cloud API mode): {{1}} the person's name,
+ * {{2}} the one safety line, {{3}} the certificate code. The fixed text lives in the template that
+ * Meta approves (docs/whatsapp-setup.md), not here. Never includes the person's number.
+ */
+export function templateBodyParams(m: Omit<MessageInput, 'link'>): [string, string, string] {
+  const v = violationByKey(m.violation);
+  const line =
+    m.language === 'english' ? v.lineEn : m.language === 'hindi' ? v.lineHi : v.lineHinglish;
+  return [m.name, line, m.certCode];
+}

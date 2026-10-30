@@ -23,6 +23,8 @@ export interface FakeState {
   uploads: { path: string; bytes: Buffer }[];
   pdfs: { path: string; bytes: Buffer }[];
   links: Row[];
+  pendingStatuses: Row[];
+  webhookHashes: string[];
   deleted: string[];
   requests: string[];
 }
@@ -95,6 +97,8 @@ export function freshState(): FakeState {
     uploads: [],
     pdfs: [],
     links: [],
+    pendingStatuses: [],
+    webhookHashes: [],
     deleted: [],
     requests: [],
   };
@@ -193,6 +197,128 @@ export async function startFakeSupabase(
         },
       ]);
     }
+    if (path === '/rest/v1/opt_outs' && method === 'POST') {
+      const { phone_hash } = JSON.parse(body.toString()) as { phone_hash: string };
+      if (!st.optOuts.includes(phone_hash)) st.optOuts.push(phone_hash);
+      return send(201);
+    }
+    // Cloud API delivery (migration 5). These mirror the SQL functions, which tests/db runs for real.
+    if (path === '/rest/v1/rpc/claim_send') {
+      const { p_entry_id } = JSON.parse(body.toString()) as { p_entry_id: string };
+      const e = st.entries.find((r) => r.id === p_entry_id);
+      if (!e) return send(200, []);
+      const claimable =
+        !e.purged_at &&
+        e.pdf_path &&
+        (e.status === 'ready' || (e.status === 'failed' && e.retryable === true));
+      if (claimable) {
+        e.status = 'sending';
+        e.send_attempts = Number(e.send_attempts ?? 0) + 1;
+        e.retryable = false;
+        e.next_retry_at = null;
+      }
+      return send(200, [
+        {
+          claimed: Boolean(claimable),
+          status: e.status,
+          purged: Boolean(e.purged_at),
+          officer_id: e.officer_id,
+          phone_e164: e.phone_e164 ?? null,
+          phone_hash: e.phone_hash ?? null,
+          person_name: e.person_name ?? null,
+          violation: e.violation,
+          cert_code: e.cert_code,
+          pdf_path: e.pdf_path ?? null,
+          attempts: Number(e.send_attempts ?? 0),
+        },
+      ]);
+    }
+    if (path === '/rest/v1/rpc/complete_send') {
+      const a = JSON.parse(body.toString()) as {
+        p_entry_id: string;
+        p_message_id: string;
+        p_category: string | null;
+      };
+      const e = st.entries.find((r) => r.id === a.p_entry_id);
+      if (!e || e.status !== 'sending') return send(200, false);
+      Object.assign(e, {
+        status: 'sent',
+        wa_message_id: a.p_message_id,
+        wa_category: a.p_category,
+        sent_at: new Date().toISOString(),
+        delivery_mode: 'cloud_api',
+        error_code: null,
+      });
+      const rank: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
+      for (const p of st.pendingStatuses.filter((x) => x.message_id === a.p_message_id)) {
+        if ((rank[String(p.status)] ?? 0) > (rank[String(e.status)] ?? 0)) e.status = p.status;
+      }
+      st.pendingStatuses = st.pendingStatuses.filter((x) => x.message_id !== a.p_message_id);
+      return send(200, true);
+    }
+    if (path === '/rest/v1/rpc/fail_send') {
+      const a = JSON.parse(body.toString()) as {
+        p_entry_id: string;
+        p_error: string;
+        p_retryable: boolean;
+        p_next_retry: string | null;
+      };
+      const e = st.entries.find((r) => r.id === a.p_entry_id);
+      if (!e || e.status !== 'sending') return send(200, false);
+      Object.assign(e, {
+        status: 'failed',
+        error_code: a.p_error,
+        retryable: a.p_retryable,
+        next_retry_at: a.p_next_retry,
+      });
+      return send(200, true);
+    }
+    if (path === '/rest/v1/rpc/apply_wa_status') {
+      const a = JSON.parse(body.toString()) as {
+        p_message_id: string;
+        p_status: string;
+        p_error: string | null;
+      };
+      const e = st.entries.find((r) => r.wa_message_id === a.p_message_id);
+      if (!e) {
+        st.pendingStatuses.push({ message_id: a.p_message_id, status: a.p_status });
+        return send(200, 'pending');
+      }
+      const rank: Record<string, number> = { sent: 1, delivered: 2, read: 3 };
+      if (a.p_status === 'failed') {
+        if (e.status === 'delivered' || e.status === 'read') return send(200, 'ignored');
+        Object.assign(e, { status: 'failed', error_code: a.p_error, retryable: false });
+        return send(200, 'applied');
+      }
+      if ((rank[a.p_status] ?? 0) <= (rank[String(e.status)] ?? 0)) return send(200, 'ignored');
+      e.status = a.p_status;
+      return send(200, 'applied');
+    }
+    if (path === '/rest/v1/rpc/register_webhook') {
+      const { p_hash } = JSON.parse(body.toString()) as { p_hash: string };
+      if (st.webhookHashes.includes(p_hash)) return send(200, false);
+      st.webhookHashes.push(p_hash);
+      return send(200, true);
+    }
+    if (path === '/rest/v1/rpc/due_retries') {
+      const { p_limit, p_max_attempts } = JSON.parse(body.toString()) as {
+        p_limit: number;
+        p_max_attempts: number;
+      };
+      const due = st.entries
+        .filter(
+          (e) =>
+            e.status === 'failed' &&
+            e.retryable === true &&
+            !e.purged_at &&
+            Number(e.send_attempts ?? 0) < p_max_attempts &&
+            (!e.next_retry_at || new Date(String(e.next_retry_at)).getTime() <= Date.now()),
+        )
+        .slice(0, p_limit)
+        .map((e) => e.id);
+      return send(200, due);
+    }
+    if (path === '/rest/v1/rpc/mark_stale_sends') return send(200, 0);
     if (path === '/rest/v1/audit_log' && method === 'POST') {
       st.audit.push(JSON.parse(body.toString()) as Row);
       return send(201);
@@ -234,6 +360,10 @@ export async function startFakeSupabase(
           wa_message_id: null,
           sent_at: null,
           delivery_mode: null,
+          send_attempts: 0,
+          retryable: false,
+          next_retry_at: null,
+          wa_category: null,
           link_opened_at: null,
           purged_at: null,
           ...row,

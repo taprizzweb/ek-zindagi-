@@ -14,6 +14,10 @@ export type AuditAction =
   | 'certificate_generated'
   | 'certificate_failed'
   | 'delivery_prepared'
+  | 'delivery_sent'
+  | 'delivery_failed'
+  | 'opt_out_recorded'
+  | 'template_category_changed'
   | 'certificate_downloaded';
 
 /** Keep in step with the audit_meta_no_personal_keys constraint in the first migration. */

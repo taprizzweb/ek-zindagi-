@@ -97,7 +97,7 @@ export default function NewEntryForm({
   const [serverError, setServerError] = useState<Bilingual | null>(null);
   const [progress, setProgress] = useState<'saving' | 'creating'>('saving');
   const [created, setCreated] = useState<Created | null>(null);
-  const [sendState, setSendState] = useState<'idle' | 'sending' | 'opened'>('idle');
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'opened' | 'sent'>('idle');
   const [sendError, setSendError] = useState<Bilingual | null>(null);
   const [waUrl, setWaUrl] = useState<string | null>(null);
   const [locationKey, setLocationKey] = useState(0); // new entry = fresh GPS fix
@@ -256,7 +256,15 @@ export default function NewEntryForm({
         method: 'POST',
         signal: AbortSignal.timeout(30_000),
       });
-      const json = (await res.json()) as { waUrl?: string; error?: { code: string } };
+      const json = (await res.json()) as {
+        mode?: string;
+        waUrl?: string;
+        error?: { code: string };
+      };
+      if (res.ok && json.mode === 'cloud_api') {
+        setSendState('sent'); // the server sent it; there is no WhatsApp hand-off on this phone
+        return;
+      }
       if (res.ok && json.waUrl) {
         setWaUrl(json.waUrl);
         setSendState('opened');
@@ -396,18 +404,31 @@ export default function NewEntryForm({
             ) : null}
           </div>
         ) : null}
+        {sendState === 'sent' ? (
+          <div role="status" className="space-y-2 rounded border-2 border-accent p-3">
+            <p className="font-semibold text-accent-dark">
+              संदेश भेज दिया गया। / The message has been sent.
+            </p>
+            <p className="text-sm text-muted">
+              पहुँचने की पुष्टि सुपरवाइज़र स्क्रीन पर दिखेगी। / Delivery is confirmed later on the
+              supervisor screen.
+            </p>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button
             type="button"
             className="flex-1"
             onClick={() => void sendOnWhatsApp()}
-            disabled={sendState === 'sending'}
+            disabled={sendState === 'sending' || sendState === 'sent'}
           >
             {sendState === 'sending'
               ? 'तैयार कर रहे हैं… / Preparing…'
-              : sendState === 'opened'
-                ? 'फिर से भेजें / Send again'
-                : 'व्हाट्सऐप पर भेजें / Send on WhatsApp'}
+              : sendState === 'sent'
+                ? 'भेज दिया / Sent'
+                : sendState === 'opened'
+                  ? 'फिर से भेजें / Send again'
+                  : 'व्हाट्सऐप पर भेजें / Send on WhatsApp'}
           </Button>
           <Button type="button" variant="secondary" onClick={changeNumber}>
             नंबर गलत है? / Wrong number?

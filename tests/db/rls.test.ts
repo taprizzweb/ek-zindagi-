@@ -775,3 +775,441 @@ describe('bridge links (migration 4)', () => {
     );
   });
 });
+
+describe('cloud API delivery (migration 5)', () => {
+  const seq = { n: 0 };
+  /** A ready entry, ready to be sent. */
+  async function entry(
+    over: {
+      status?: string;
+      retryable?: boolean;
+      nextRetry?: string;
+      attempts?: number;
+      msg?: string;
+    } = {},
+  ) {
+    const id = `70000000-0000-4000-8000-${String(++seq.n).padStart(12, '0')}`;
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, status, person_name, phone_e164,
+         phone_hash, pdf_path, retryable, next_retry_at, send_attempts, wa_message_id, delivery_mode)
+       values ($1::uuid, 'EKZ-W-' || substr(md5($1::text), 1, 8), $2, 'helmet', 'manual', $3::public.entry_status,
+         'Ravi Kumar', '+919876543210', $4, $1::text || '.pdf', $5::boolean,
+         case when $6::text is null then null else now() + $6::text::interval end, $7::int, $8::text, $9::text)`,
+      [
+        id,
+        OFFICER1,
+        over.status ?? 'ready',
+        HASH,
+        over.retryable ?? false,
+        over.nextRetry ?? null,
+        over.attempts ?? 0,
+        over.msg ?? null,
+        over.status && over.status !== 'ready' ? 'cloud_api' : null,
+      ],
+    );
+    return id;
+  }
+
+  const svc = <T>(fn: () => Promise<T>) => as('service_role', null, fn);
+  const row = async (id: string) =>
+    (await q('select * from public.entries where id = $1', [id])).rows[0];
+
+  it('claims a ready entry once; a second caller gets it unclaimed as "sending"', async () => {
+    const id = await entry();
+    const [a, b] = await svc(async () => [
+      (await q('select * from public.claim_send($1)', [id])).rows[0],
+      (await q('select * from public.claim_send($1)', [id])).rows[0],
+    ]);
+    expect(a).toMatchObject({
+      claimed: true,
+      status: 'sending',
+      attempts: 1,
+      phone_e164: '+919876543210',
+      person_name: 'Ravi Kumar',
+      pdf_path: `${id}.pdf`,
+    });
+    expect(b).toMatchObject({ claimed: false, status: 'sending' });
+  });
+
+  it('is atomic across connections: of eight simultaneous callers exactly one wins', async () => {
+    const id = await entry();
+    const clients = await Promise.all(
+      Array.from({ length: 8 }, async () => {
+        const c = new pg.Client({ connectionString: inject('dbUrl') });
+        await c.connect();
+        await c.query('set role service_role');
+        return c;
+      }),
+    );
+    try {
+      const results = await Promise.all(
+        clients.map((c) => c.query('select claimed from public.claim_send($1)', [id])),
+      );
+      expect(results.filter((r) => r.rows[0].claimed)).toHaveLength(1);
+      expect((await row(id)).send_attempts).toBe(1);
+    } finally {
+      await Promise.all(clients.map((c) => c.end()));
+    }
+  });
+
+  it.each(['saved', 'generating', 'sent', 'delivered', 'read', 'sending'])(
+    'never claims an entry that is %s',
+    async (status) => {
+      const id =
+        status === 'saved' || status === 'generating'
+          ? await (async () => {
+              const i = `71000000-0000-4000-8000-${String(++seq.n).padStart(12, '0')}`;
+              await q(
+                `insert into public.entries (id, cert_code, officer_id, violation, location_source, status) values ($1::uuid, 'EKZ-W-' || substr(md5($1::text), 1, 8), $2, 'helmet', 'manual', $3)`,
+                [i, OFFICER1, status],
+              );
+              return i;
+            })()
+          : await entry({ status, msg: `wamid.${status}${seq.n}` });
+      const r = await svc(
+        async () => (await q('select * from public.claim_send($1)', [id])).rows[0],
+      );
+      expect(r.claimed).toBe(false);
+      expect(r.status).toBe(status);
+    },
+  );
+
+  it('claims a failed entry only if it is marked retryable', async () => {
+    const yes = await entry({ status: 'failed', retryable: true });
+    const no = await entry({ status: 'failed', retryable: false });
+    expect(
+      (await svc(async () => (await q('select claimed from public.claim_send($1)', [yes])).rows[0]))
+        .claimed,
+    ).toBe(true);
+    expect(
+      (await svc(async () => (await q('select claimed from public.claim_send($1)', [no])).rows[0]))
+        .claimed,
+    ).toBe(false);
+  });
+
+  it('refuses an entry whose data was deleted, and one with no PDF; unknown ids return nothing', async () => {
+    const id = `72000000-0000-4000-8000-${String(++seq.n).padStart(12, '0')}`;
+    await q(
+      `insert into public.entries (id, cert_code, officer_id, violation, location_source, purged_at) values ($1::uuid, 'EKZ-W-' || substr(md5($1::text), 1, 8), $2, 'helmet', 'manual', now())`,
+      [id, OFFICER1],
+    );
+    expect(
+      await svc(async () => (await q('select * from public.claim_send($1)', [id])).rows[0]),
+    ).toMatchObject({ claimed: false, purged: true, person_name: null });
+    expect(
+      await svc(
+        async () =>
+          (await q('select * from public.claim_send($1)', ['72000000-0000-4000-8000-0000000000ff']))
+            .rows,
+      ),
+    ).toEqual([]);
+  });
+
+  /** Runs the steps as the service role in ONE transaction, then reads the entries back as the owner. */
+  const flow = (steps: () => Promise<unknown>, ids: string[]) =>
+    svc(async () => {
+      const out = await steps();
+      await q('reset role');
+      const rows = (await q('select * from public.entries where id = any($1::uuid[])', [ids])).rows;
+      return {
+        out,
+        e: Object.fromEntries(rows.map((r) => [r.id, r])) as Record<
+          string,
+          Record<string, unknown>
+        >,
+      };
+    });
+  const one = async (sql: string, params: unknown[] = []) => (await q(sql, params)).rows[0];
+
+  it('complete_send stores the message id and moves to sent, once, and only from sending', async () => {
+    const id = await entry();
+    const r = await flow(async () => {
+      await q('select * from public.claim_send($1)', [id]);
+      const a = (await one(`select public.complete_send($1, 'wamid.A1', 'utility') as ok`, [id]))
+        .ok;
+      const b = (await one(`select public.complete_send($1, 'wamid.A2', 'utility') as ok`, [id]))
+        .ok;
+      return { a, b };
+    }, [id]);
+    expect(r.out).toEqual({ a: true, b: false });
+    expect(r.e[id]).toMatchObject({
+      status: 'sent',
+      wa_message_id: 'wamid.A1',
+      wa_category: 'utility',
+      retryable: false,
+    });
+  });
+
+  it('refuses a message id that another entry already has (unique)', async () => {
+    await entry({ status: 'sent', msg: 'wamid.DUP' });
+    const b = await entry();
+    await svc(async () => {
+      await q('select * from public.claim_send($1)', [b]);
+      await denied(
+        q(`select public.complete_send($1, 'wamid.DUP', null)`, [b]),
+        /entries_wa_message_id_key/,
+      );
+    });
+  });
+
+  it('fail_send records a retryable failure with a retry time, or a permanent one without', async () => {
+    const a = await entry();
+    const b = await entry();
+    const r = await flow(async () => {
+      await q('select * from public.claim_send($1)', [a]);
+      await q('select * from public.claim_send($1)', [b]);
+      await q(`select public.fail_send($1, 'wa_503', true, now() + interval '5 minutes')`, [a]);
+      await q(`select public.fail_send($1, 'wa_131026', false, now() + interval '5 minutes')`, [b]);
+    }, [a, b]);
+    expect(r.e[a]).toMatchObject({ status: 'failed', error_code: 'wa_503', retryable: true });
+    expect(r.e[a]!.next_retry_at).not.toBeNull();
+    expect(r.e[b]).toMatchObject({
+      status: 'failed',
+      error_code: 'wa_131026',
+      retryable: false,
+      next_retry_at: null,
+    });
+  });
+
+  it('fail_send and complete_send do nothing once a webhook has moved the entry on', async () => {
+    const id = await entry({ status: 'delivered', msg: 'wamid.LATE' });
+    const r = await svc(
+      async () =>
+        await one(
+          `select public.fail_send($1, 'wa_500', true, now()) as f, public.complete_send($1, 'wamid.X', null) as c`,
+          [id],
+        ),
+    );
+    expect(r).toEqual({ f: false, c: false });
+    expect((await row(id)).status).toBe('delivered');
+  });
+
+  describe('webhook statuses', () => {
+    const apply = async (
+      m: string,
+      st: string,
+      ts = '2026-10-30T10:00:00Z',
+      err: string | null = null,
+      cat: string | null = null,
+    ) =>
+      (await one('select public.apply_wa_status($1, $2, $3, $4, $5) as r', [m, st, ts, err, cat]))
+        .r as string;
+
+    it('move forward: sent, delivered, read, and set the timestamps', async () => {
+      const id = await entry({ status: 'sent', msg: 'wamid.F1' });
+      const { e } = await flow(async () => {
+        await apply('wamid.F1', 'delivered', '2026-10-30T10:01:00Z', null, 'utility');
+        await apply('wamid.F1', 'read', '2026-10-30T10:02:00Z');
+      }, [id]);
+      expect(e[id]!.status).toBe('read');
+      expect(new Date(e[id]!.delivered_at as string).toISOString()).toBe(
+        '2026-10-30T10:01:00.000Z',
+      );
+      expect(new Date(e[id]!.read_at as string).toISOString()).toBe('2026-10-30T10:02:00.000Z');
+      expect(e[id]!.wa_category).toBe('utility');
+    });
+
+    it('never move backwards: a late "sent" or "delivered" after "read" changes nothing', async () => {
+      const id = await entry({ status: 'read', msg: 'wamid.F2' });
+      const r = await flow(
+        async () => [await apply('wamid.F2', 'sent'), await apply('wamid.F2', 'delivered')],
+        [id],
+      );
+      expect(r.out as string[]).toEqual(['ignored', 'ignored']);
+      expect(r.e[id]!.status).toBe('read');
+    });
+
+    it('a repeated report is ignored', async () => {
+      const id = await entry({ status: 'sent', msg: 'wamid.F3' });
+      const r = await flow(
+        async () => [await apply('wamid.F3', 'delivered'), await apply('wamid.F3', 'delivered')],
+        [id],
+      );
+      expect(r.out as string[]).toEqual(['applied', 'ignored']);
+    });
+
+    it('"read" arriving before "delivered" fills in the delivered time too', async () => {
+      const id = await entry({ status: 'sent', msg: 'wamid.F4' });
+      const { e } = await flow(async () => apply('wamid.F4', 'read', '2026-10-30T10:05:00Z'), [id]);
+      expect([e[id]!.status, e[id]!.delivered_at !== null, e[id]!.read_at !== null]).toEqual([
+        'read',
+        true,
+        true,
+      ]);
+    });
+
+    it('"failed" after "sent" records the error, is final, and cannot undo a delivery', async () => {
+      const a = await entry({ status: 'sent', msg: 'wamid.F5' });
+      const b = await entry({ status: 'delivered', msg: 'wamid.F6' });
+      const r = await flow(
+        async () => [
+          await apply('wamid.F5', 'failed', '2026-10-30T10:00:00Z', 'wa_131026'),
+          await apply('wamid.F6', 'failed', '2026-10-30T10:00:00Z', 'wa_131026'),
+        ],
+        [a, b],
+      );
+      expect(r.out as string[]).toEqual(['applied', 'ignored']);
+      expect(r.e[a]).toMatchObject({ status: 'failed', error_code: 'wa_131026', retryable: false });
+      expect(r.e[b]!.status).toBe('delivered');
+    });
+
+    it('a status for a message we do not have yet waits, and is applied when the send completes', async () => {
+      const id = await entry();
+      let pendingBefore = -1;
+      let pendingAfter = -1;
+      const r = await flow(async () => {
+        const early = await apply('wamid.EARLY', 'delivered', '2026-10-30T10:01:00Z'); // the webhook beats our own write
+        pendingBefore = (
+          await one(
+            `select count(*)::int as n from public.wa_pending_statuses where message_id = 'wamid.EARLY'`,
+          )
+        ).n;
+        await q('select * from public.claim_send($1)', [id]);
+        await q(`select public.complete_send($1, 'wamid.EARLY', 'utility')`, [id]);
+        pendingAfter = (
+          await one(
+            `select count(*)::int as n from public.wa_pending_statuses where message_id = 'wamid.EARLY'`,
+          )
+        ).n;
+        return early;
+      }, [id]);
+      expect(r.out).toBe('pending');
+      expect([pendingBefore, pendingAfter]).toEqual([1, 0]);
+      expect(r.e[id]).toMatchObject({
+        status: 'delivered',
+        wa_message_id: 'wamid.EARLY',
+        wa_category: 'utility',
+      });
+    });
+
+    it('ignores unknown status words, and records events without personal data', async () => {
+      const id = await entry({ status: 'sent', msg: 'wamid.F7' });
+      const r = await flow(async () => {
+        const unknown = await apply('wamid.F7', 'deleted');
+        await apply('wamid.F7', 'delivered');
+        const events = (await q('select * from public.delivery_events where entry_id = $1', [id]))
+          .rows;
+        return { unknown, events };
+      }, [id]);
+      const out = r.out as { unknown: string; events: { kind: string }[] };
+      expect(out.unknown).toBe('ignored');
+      expect(out.events.map((e) => e.kind)).toEqual(['delivered']);
+      expect(JSON.stringify(out.events)).not.toMatch(/Ravi|9876543210/);
+    });
+  });
+
+  it('register_webhook is true once per body and false for a replay', async () => {
+    const h = 'c'.repeat(64);
+    const r = await svc(async () => [
+      (await one('select public.register_webhook($1) as r', [h])).r,
+      (await one('select public.register_webhook($1) as r', [h])).r,
+    ]);
+    expect(r).toEqual([true, false]);
+    await svc(() => denied(q(`select public.register_webhook('not-a-hash')`), /body_hash/));
+  });
+
+  it('mark_stale_sends fails (without retry) a send stuck for too long, and leaves fresh ones alone', async () => {
+    const stale = await entry();
+    const fresh = await entry();
+    const r = await svc(async () => {
+      await q('select * from public.claim_send($1)', [stale]);
+      await q('select * from public.claim_send($1)', [fresh]);
+      await q('reset role');
+      await q(
+        `update public.entries set status_changed_at = now() - interval '20 minutes' where id = $1`,
+        [stale],
+      );
+      await q('set role service_role');
+      const n = (await one(`select public.mark_stale_sends(interval '15 minutes') as n`)).n;
+      await q('reset role');
+      const rows = (
+        await q(
+          'select id, status, error_code, retryable from public.entries where id = any($1::uuid[])',
+          [[stale, fresh]],
+        )
+      ).rows;
+      return { n, rows: Object.fromEntries(rows.map((x) => [x.id, x])) };
+    });
+    expect(r.n).toBeGreaterThanOrEqual(1);
+    expect(r.rows[stale]).toMatchObject({
+      status: 'failed',
+      error_code: 'ambiguous_stale',
+      retryable: false,
+    });
+    expect(r.rows[fresh]!.status).toBe('sending');
+  });
+
+  it('due_retries returns retryable failures that are due and under the attempt limit, oldest first', async () => {
+    const due = await entry({
+      status: 'failed',
+      retryable: true,
+      nextRetry: '-1 minute',
+      attempts: 2,
+    });
+    const later = await entry({
+      status: 'failed',
+      retryable: true,
+      nextRetry: '10 minutes',
+      attempts: 1,
+    });
+    const spent = await entry({
+      status: 'failed',
+      retryable: true,
+      nextRetry: '-1 minute',
+      attempts: 5,
+    });
+    const permanent = await entry({ status: 'failed', retryable: false, attempts: 1 });
+    const ids = await svc(async () =>
+      (await q('select public.due_retries(50, 5) as id')).rows.map((r) => r.id),
+    );
+    expect(ids).toContain(due);
+    for (const x of [later, spent, permanent]) expect(ids).not.toContain(x);
+  });
+
+  it('browser roles cannot call any of these functions or read the tables', async () => {
+    const id = await entry();
+    for (const [role, uid] of [
+      ['authenticated', ADMIN],
+      ['authenticated', OFFICER1],
+      ['anon', null],
+    ] as [Role, string | null][]) {
+      for (const sql of [
+        `select * from public.claim_send('${id}')`,
+        `select public.complete_send('${id}', 'x', null)`,
+        `select public.fail_send('${id}', 'x', false, now())`,
+        `select public.apply_wa_status('x', 'read', now(), null, null)`,
+        `select public.register_webhook('${'a'.repeat(64)}')`,
+        `select public.mark_stale_sends(interval '1 minute')`,
+        `select public.due_retries(1, 5)`,
+        'select * from public.delivery_events',
+        'select * from public.wa_pending_statuses',
+        'select * from public.webhook_events',
+      ]) {
+        await as(role, uid, () => denied(q(sql)));
+      }
+    }
+  });
+
+  it('browser roles cannot read the new entry columns (retry state, category)', async () => {
+    for (const col of [
+      'send_attempts',
+      'retryable',
+      'next_retry_at',
+      'wa_category',
+      'wa_message_id',
+    ]) {
+      await as('authenticated', SUPERVISOR, () => denied(q(`select ${col} from public.entries`)));
+    }
+  });
+
+  it('accepts the new audit actions and only known categories', async () => {
+    await q(
+      `insert into public.audit_log (action, meta) values ('delivery_sent', '{}'), ('delivery_failed', '{"code":"wa_131026"}'), ('opt_out_recorded', '{}'), ('template_category_changed', '{"from":"utility","to":"marketing"}')`,
+    );
+    const id = await entry();
+    await denied(
+      q(`update public.entries set wa_category = 'spam' where id = $1`, [id]),
+      /wa_category/,
+    );
+  });
+});

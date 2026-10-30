@@ -65,6 +65,18 @@ export const ERROR_MESSAGES: Record<ErrorCode, Bilingual> = {
     hi: 'यह तरीका अभी चालू नहीं है।',
     en: 'This delivery mode is not available yet.',
   },
+  send_failed: {
+    hi: 'संदेश नहीं भेजा जा सका। पर्यवेक्षक को यह विफलता दिखेगी।',
+    en: 'The message could not be sent. A supervisor can see this failure.',
+  },
+  send_retrying: {
+    hi: 'अभी संदेश नहीं जा सका। अपने आप दोबारा कोशिश होगी।',
+    en: 'The message could not be sent right now. It will be retried automatically.',
+  },
+  campaign_paused: {
+    hi: 'अभियान अभी रोका गया है। कोई संदेश नहीं भेजा जाएगा।',
+    en: 'The campaign is paused. No messages are being sent.',
+  },
   internal: {
     hi: 'कुछ गड़बड़ हो गई। आपका डेटा सुरक्षित है, फिर से कोशिश करें।',
     en: 'Something went wrong on our side. Please try again.',

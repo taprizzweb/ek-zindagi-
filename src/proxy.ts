@@ -54,9 +54,15 @@ export async function proxy(request: NextRequest) {
   );
 
   const { pathname } = request.nextUrl;
+  // Public on purpose, each with its own credential: the certificate link (its token), the WhatsApp webhook
+  // (the signature on the body) and the cron route (a bearer secret). None has a session to check.
   // The certificate link in the WhatsApp message is public: the person has no account. The token in
   // the address is the only credential (see src/app/c/[token]/route.ts), so there is no session to check.
-  if (pathname.startsWith('/c/')) {
+  if (
+    pathname.startsWith('/c/') ||
+    pathname.startsWith('/api/webhooks/') ||
+    pathname.startsWith('/api/cron/')
+  ) {
     response.headers.set('Content-Security-Policy', csp);
     return response;
   }

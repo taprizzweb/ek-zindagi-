@@ -5,7 +5,7 @@ const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20),
 });
 
-const serverSchema = z.object({
+const serverObject = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
   INACTIVITY_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
   LOGIN_MAX_ATTEMPTS_PER_IP: z.coerce.number().int().min(1).max(1000).default(20),
@@ -23,6 +23,31 @@ const serverSchema = z.object({
   APP_BASE_URL: z.url(),
   DELIVERY_MODE: z.enum(['bridge', 'cloud_api']).default('bridge'),
   MESSAGE_LANGUAGE: z.enum(['hinglish', 'hindi', 'english']).default('hinglish'),
+  CAMPAIGN_PAUSED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  DELIVERY_RETRY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
+  CRON_SECRET: z.string().min(32).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(5).optional(),
+  WHATSAPP_TOKEN: z.string().min(10).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(10).optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(10).optional(),
+  WHATSAPP_TEMPLATE_NAME: z
+    .string()
+    .regex(/^[a-z0-9_]{1,512}$/)
+    .optional(),
+  WHATSAPP_TEMPLATE_LANGUAGE: z
+    .string()
+    .regex(/^[a-z]{2}(_[A-Z]{2})?$/)
+    .default('en'),
+  WHATSAPP_TEMPLATE_CATEGORY: z.enum(['UTILITY', 'MARKETING']).default('UTILITY'),
+  WHATSAPP_API_VERSION: z
+    .string()
+    .regex(/^v\d+\.\d+$/)
+    .default('v21.0'),
+  /** Only tests change this. */
+  WHATSAPP_API_BASE: z.url().default('https://graph.facebook.com'),
   GEOCODER: z.enum(['none', 'google']).default('none'),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
@@ -34,6 +59,26 @@ export function publicEnv() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   });
 }
+
+/** Cloud API mode needs the WhatsApp settings; bridge mode does not. */
+const serverSchema = serverObject.superRefine((v, ctx) => {
+  if (v.DELIVERY_MODE !== 'cloud_api') return;
+  for (const key of [
+    'WHATSAPP_PHONE_NUMBER_ID',
+    'WHATSAPP_TOKEN',
+    'WHATSAPP_APP_SECRET',
+    'WHATSAPP_VERIFY_TOKEN',
+    'WHATSAPP_TEMPLATE_NAME',
+    'CRON_SECRET',
+  ] as const) {
+    if (!v[key])
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: 'required when DELIVERY_MODE=cloud_api',
+      });
+  }
+});
 
 export function serverEnv() {
   return serverSchema.parse(process.env);

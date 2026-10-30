@@ -33,7 +33,7 @@ Where this update and the master prompt conflict, the update wins. Status: **pla
 5. **Hindi.** The new design prints no Hindi, but names and places may still be Devanagari. Anton and Libre Baskerville have no Devanagari glyphs, so Noto Serif Devanagari stays as the fallback font. Names and places stay limited to Latin and Devanagari.
 6. **"Signed" link.** I use a random 128-bit token whose hash is stored with its expiry, not a stateless signature. It can be revoked and deleted with the file, and it cannot be forged. Same guarantees the update asks for (24 h expiry, 410 afterwards, serves one file only).
 7. **Number confirmation.** Generating a certificate sends nothing, so the "is this number correct?" check moves to the moment just before "Send on WhatsApp", where a wrong number would actually do harm.
-8. **Scope of this round.** Cloud API delivery with webhook, STOP handling and retries, and the retention job, are not part of this round; they remain milestones 5 and 6 and will use the new message builder and the same PDF.
+8. **Scope of this round.** Cloud API delivery with webhook, STOP handling and retries (since done, milestone 5), and the retention job, were not part of this round; the latter remains milestone 6 and will use the new message builder and the same PDF.
 
 ## 4. Outcome
 

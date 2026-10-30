@@ -17,7 +17,7 @@ certificate (PDF) and sends it to the person's WhatsApp number. Personal data is
 | 2. Officer form                                               | done        |
 | 3. Certificate PDF (redesigned: landscape v2)                 | done        |
 | 4. Bridge delivery (24-hour links, wa.me hand-off)            | done        |
-| 5. Cloud API delivery                                         | not started |
+| 5. Cloud API delivery (webhook, STOP, retries, kill switch)   | done        |
 | 6. Retention, supervisor/admin screens                        | not started |
 | 7. Hardening, docs, deploy                                    | not started |
 
@@ -102,9 +102,10 @@ The date and time on the certificate is the **server's** time of record, not the
 - **The link:** a random 128-bit token (only its hash is stored), 24-hour limit enforced by the database,
   `410` after expiry, `404` for anything unknown or malformed, rate limited per IP, serves only the one PDF
   its token belongs to, never lists files, not indexed, not cached.
-- **Cloud API (milestone 5, not built yet):** official WhatsApp Business Cloud API with a template message
-  and the PDF as the document header, webhook with signature check, STOP handling, idempotency and
-  retries. With `DELIVERY_MODE=cloud_api` the send button answers "not available yet".
+- **Cloud API (milestone 5):** official WhatsApp Business Cloud API with a template message and the PDF as
+  the document header, signed webhook, STOP handling, at most one message per entry, retries for temporary
+  failures only (an unknown outcome is never retried), and a `CAMPAIGN_PAUSED` kill switch. Setup:
+  `docs/whatsapp-setup.md`. Tested against a fake WhatsApp API, **not yet against Meta**.
 - **The message:** short; who it is from (Jaipur road safety awareness camp, Project EK ZINDAGI), that the
   certificate is a hypothetical illustration, one safety line for the chosen violation, the code and the
   STOP opt-out line. It never mentions a challan, fine, penalty or offence (tested for every language and
@@ -112,8 +113,8 @@ The date and time on the certificate is the **server's** time of record, not the
 
 ### Still to come
 
-Milestone 5 (cloud API, webhook, STOP), 6 (retention job, supervisor and admin screens, kill switch), 7
-(hardening, privacy documents, runbook, deploy, manual device test script).
+Milestone 6 (retention job, supervisor and admin screens, kill-switch screen), 7 (hardening, privacy
+documents, runbook, deploy, manual device test script).
 
 ## What exists after milestone 1
 

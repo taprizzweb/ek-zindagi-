@@ -3,7 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ViolationKey } from '@/config/violations';
 import { AppError } from '@/lib/errors';
 import type { BridgePorts } from './bridge';
+import type { CloudPorts } from './cloud';
 import type { LinkPorts } from './link';
+import type { WebhookPorts } from './whatsapp/webhook';
 
 function fail(): never {
   throw new AppError('internal', 500);
@@ -101,6 +103,116 @@ export function supabaseLinkPorts(admin: SupabaseClient): LinkPorts {
       const { data, error } = await admin.storage.from('pdfs').download(path);
       if (error || !data) fail();
       return Buffer.from(await data.arrayBuffer());
+    },
+  };
+}
+
+export function supabaseCloudPorts(admin: SupabaseClient): CloudPorts {
+  const bridge = supabaseBridgePorts(admin);
+  return {
+    loadForSend: bridge.loadForSend,
+    isOptedOut: bridge.isOptedOut,
+    rateLimit: bridge.rateLimit,
+    async claim(entryId) {
+      const { data, error } = await admin.rpc('claim_send', { p_entry_id: entryId });
+      if (error) fail();
+      const r = (
+        data as
+          | {
+              claimed: boolean;
+              status: string;
+              purged: boolean;
+              officer_id: string;
+              phone_e164: string | null;
+              phone_hash: string | null;
+              person_name: string | null;
+              violation: ViolationKey;
+              cert_code: string;
+              pdf_path: string | null;
+              attempts: number;
+            }[]
+          | null
+      )?.[0];
+      if (!r) return null;
+      return {
+        claimed: r.claimed,
+        status: r.status,
+        purged: r.purged,
+        officerId: r.officer_id,
+        phoneE164: r.phone_e164,
+        phoneHash: r.phone_hash,
+        personName: r.person_name,
+        violation: r.violation,
+        certCode: r.cert_code,
+        pdfPath: r.pdf_path,
+        attempts: r.attempts,
+      };
+    },
+    async downloadPdf(path) {
+      const { data, error } = await admin.storage.from('pdfs').download(path);
+      if (error || !data) fail();
+      return Buffer.from(await data.arrayBuffer());
+    },
+    async complete(entryId, messageId, category) {
+      const { data, error } = await admin.rpc('complete_send', {
+        p_entry_id: entryId,
+        p_message_id: messageId,
+        p_category: category,
+      });
+      if (error) fail();
+      return data === true;
+    },
+    async fail(entryId, code, retryable, nextRetryAt) {
+      const { data, error } = await admin.rpc('fail_send', {
+        p_entry_id: entryId,
+        p_error: code,
+        p_retryable: retryable,
+        p_next_retry: nextRetryAt ? nextRetryAt.toISOString() : null,
+      });
+      if (error) fail();
+      return data === true;
+    },
+    async dueRetries(limit, maxAttempts) {
+      const { data, error } = await admin.rpc('due_retries', {
+        p_limit: limit,
+        p_max_attempts: maxAttempts,
+      });
+      if (error) fail();
+      return (data as string[] | null) ?? [];
+    },
+    async markStale(ageMinutes) {
+      const { data, error } = await admin.rpc('mark_stale_sends', {
+        p_age: `${ageMinutes} minutes`,
+      });
+      if (error) fail();
+      return Number(data ?? 0);
+    },
+  };
+}
+
+export function supabaseWebhookPorts(admin: SupabaseClient): WebhookPorts {
+  return {
+    async registerBody(hash) {
+      const { data, error } = await admin.rpc('register_webhook', { p_hash: hash });
+      if (error) fail();
+      return data === true;
+    },
+    async applyStatus(s) {
+      const { data, error } = await admin.rpc('apply_wa_status', {
+        p_message_id: s.messageId,
+        p_status: s.status,
+        p_ts: s.at.toISOString(),
+        p_error: s.errorCode,
+        p_category: s.category,
+      });
+      if (error) fail();
+      return data as 'applied' | 'ignored' | 'pending';
+    },
+    async addOptOut(phoneHash) {
+      const { error } = await admin
+        .from('opt_outs')
+        .upsert({ phone_hash: phoneHash }, { onConflict: 'phone_hash', ignoreDuplicates: true });
+      if (error) fail();
     },
   };
 }
