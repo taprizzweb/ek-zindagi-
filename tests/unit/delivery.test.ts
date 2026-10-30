@@ -14,7 +14,7 @@ import {
   type SendCandidate,
 } from '@/lib/delivery/bridge';
 import { resolveCertificateLink, type LinkPorts } from '@/lib/delivery/link';
-import { buildMessage, whatsappUrl, type MessageLanguage } from '@/lib/delivery/message';
+import { buildMessage, whatsappUrl } from '@/lib/delivery/message';
 import { hashToken, isWellFormedToken, newLinkToken } from '@/lib/delivery/token';
 import { AppError } from '@/lib/errors';
 
@@ -58,103 +58,65 @@ describe('link tokens', () => {
 });
 
 describe('the WhatsApp message', () => {
-  const languages: MessageLanguage[] = ['hinglish', 'hindi', 'english'];
   const link = 'https://app.example.org/c/AbCdEfGhIjKlMnOpQrStUv';
+  const base = { name: 'Ravi Kumar', certCode: 'EKZ-JPR-4ZK7MQ9', violation: 'helmet' as const };
 
-  it.each(languages)(
-    '%s: says who it is from, that it is an illustration, a safety line, the code and how to stop',
-    (language) => {
-      const text = buildMessage({
-        name: 'Ravi Kumar',
-        certCode: 'EKZ-JPR-4ZK7MQ9',
-        violation: 'helmet',
-        link,
-        language,
-      });
-      expect(text).toContain('Ravi Kumar');
-      expect(text).toContain(link);
-      expect(text).toContain('EKZ-JPR-4ZK7MQ9');
-      expect(text).toContain(language === 'hindi' ? 'प्रोजेक्ट EK ZINDAGI' : 'Project EK ZINDAGI');
-      expect(text).toContain('*STOP*');
-      expect(text).toMatch(
-        language === 'hindi'
-          ? /जयपुर सड़क सुरक्षा जागरूकता शिविर/
-          : /Jaipur road safety awareness camp/,
-      );
-      expect(text).toMatch(
-        language === 'english'
-          ? /hypothetical illustration, not an official document/
-          : language === 'hindi'
-            ? /काल्पनिक चित्रण/
-            : /kaalpanik chitran/,
-      );
-      expect(text).toMatch(
-        language === 'hindi' ? /24 घंटे/ : language === 'english' ? /24 hours/ : /24 ghante/,
-      );
-    },
-  );
+  it('has Hindi and English together in every message: who it is from, that it is an illustration, a safety line, the code and how to stop', () => {
+    const text = buildMessage({ ...base, link });
+    expect(text).toContain('नमस्ते Ravi Kumar जी / Hello Ravi Kumar');
+    expect(text).toContain(link);
+    expect(text).toContain('EKZ-JPR-4ZK7MQ9');
+    expect(text).toMatch(/जयपुर सड़क सुरक्षा जागरूकता शिविर \(प्रोजेक्ट EK ZINDAGI\)/);
+    expect(text).toContain('Jaipur road safety awareness camp (Project EK ZINDAGI)');
+    expect(text).toContain('काल्पनिक चित्रण');
+    expect(text).toContain('hypothetical illustration, not an official document');
+    expect(text).toMatch(/24 घंटे/);
+    expect(text).toMatch(/24 hours/);
+    expect(text).toContain('संदेश बंद करने के लिए *STOP* लिखें। / To stop messages, reply *STOP*.');
+  });
 
-  it('never mentions a challan, fine, penalty, police action or the violation as an offence, in any language or for any violation', () => {
-    for (const language of languages) {
-      for (const violation of VIOLATION_KEYS) {
-        for (const l of [link, undefined]) {
-          const text = buildMessage({
-            name: 'Ravi Kumar',
-            certCode: 'EKZ-JPR-4ZK7MQ9',
-            violation,
-            link: l,
-            language,
-          });
-          expect(text, `${language} ${violation}`).not.toMatch(
-            /\b(challan|e-challan|fine|fines|penalty|penalties|prosecut\w*|offen[cs]e|violation|ticket|court)\b/i,
-          );
-          expect(text).not.toMatch(/चालान|जुर्माना|दंड|ज़ुर्माना|उल्लंघन|अपराध/);
-          expect(text).not.toMatch(/\b(deceased|rip|late)\b/i);
-          expect(text).not.toMatch(/chalaan|jurmana|jurmaana|dand\b/i);
-        }
+  it('never mentions a challan, fine, penalty, police action or the violation as an offence, for any violation', () => {
+    for (const violation of VIOLATION_KEYS) {
+      for (const l of [link, undefined]) {
+        const text = buildMessage({ ...base, violation, link: l });
+        expect(text, violation).not.toMatch(
+          /\b(challan|e-challan|fine|fines|penalty|penalties|prosecut\w*|offen[cs]e|violation|ticket|court)\b/i,
+        );
+        expect(text).not.toMatch(/चालान|जुर्माना|दंड|ज़ुर्माना|उल्लंघन|अपराध/);
+        expect(text).not.toMatch(/\b(deceased|rip|late)\b/i);
+        expect(text).not.toMatch(/chalaan|jurmana|jurmaana|dand\b/i);
       }
     }
   });
 
-  it('has exactly one safety line, the one for the chosen violation', () => {
+  it('has exactly one safety line, in Hindi and in English, for the chosen violation', () => {
     for (const v of VIOLATIONS) {
-      const t = buildMessage({
-        name: 'A B',
-        certCode: 'C',
-        violation: v.key,
-        link,
-        language: 'hinglish',
-      });
-      expect(t).toContain(v.lineHinglish);
-      const others = VIOLATIONS.filter((o) => o.lineHinglish !== v.lineHinglish);
-      for (const o of others) expect(t).not.toContain(o.lineHinglish);
+      const t = buildMessage({ ...base, name: 'A B', certCode: 'C', violation: v.key, link });
+      expect(t).toContain(v.lineHi);
+      expect(t).toContain(v.lineEn);
+      for (const o of VIOLATIONS.filter((o) => o.lineHi !== v.lineHi)) {
+        expect(t).not.toContain(o.lineHi);
+        expect(t).not.toContain(o.lineEn);
+      }
     }
   });
 
-  it('is short enough to read on one screen', () => {
-    for (const language of languages) {
+  it('is short enough to read on one screen, even with the longest name', () => {
+    for (const violation of VIOLATION_KEYS) {
       expect(
-        buildMessage({
-          name: 'Ramachandran Venkataraghavan Iyer Jr',
-          certCode: 'EKZ-JPR-4ZK7MQ9',
-          violation: 'child_helmet',
-          link,
-          language,
-        }).length,
-      ).toBeLessThan(600);
+        buildMessage({ ...base, name: 'Ramachandran Venkataraghavan Iyer Jr', violation, link })
+          .length,
+      ).toBeLessThan(800);
     }
   });
 
-  it('without a link (cloud API mode) says the certificate is attached and has no link line', () => {
-    const text = buildMessage({
-      name: 'A B',
-      certCode: 'C',
-      violation: 'helmet',
-      language: 'hinglish',
-    });
-    expect(text).toContain('attached hai');
+  it('without a link (cloud API mode) says in both languages that the certificate is attached and has no link line', () => {
+    const text = buildMessage({ ...base, name: 'A B', certCode: 'C' });
+    expect(text).toContain(
+      'आपका जागरूकता प्रमाणपत्र साथ में है। / Your awareness certificate is attached.',
+    );
     expect(text).not.toContain('https://');
-    expect(text).not.toContain('24 ghante');
+    expect(text).not.toMatch(/24 घंटे|24 hours/);
   });
 
   it('builds the wa.me address with the number and the encoded text', () => {
@@ -208,7 +170,6 @@ const bridgeDeps = (ports: Bridge, audit = new Audit()): BridgeDeps => ({
   ports,
   audit,
   baseUrl: 'https://app.example.org/',
-  language: 'hinglish',
   maxPerOfficerHour: 60,
   newToken: () => ({ token: 'T'.repeat(22), hash: 'a'.repeat(64) }),
   now: () => NOW,

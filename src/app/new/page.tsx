@@ -30,7 +30,6 @@ export default async function NewEntryPage() {
           ngoLogoSrc: branding.ngoLogoDataUri ?? null,
           partnerCredit: branding.partnerCreditText ?? null,
         }}
-        messageLanguage={env.MESSAGE_LANGUAGE}
         baseUrl={env.APP_BASE_URL}
         deliveryMode={env.DELIVERY_MODE}
       />

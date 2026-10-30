@@ -23,9 +23,9 @@ Create and get approved one template, for example `ek_zindagi_certificate`:
 - Header: **Document** (the certificate PDF is attached here at send time).
 - Body, three variables, in this order:
   1. the person's name,
-  2. the one safety line for the chosen violation,
+  2. the one safety line for the chosen violation, in Hindi and English on one line (`<Hindi> / <English>`),
   3. the certificate code (for example `EKZ-JPR-4ZK7MQ9`).
-- Body text must say who it is from (Jaipur road safety awareness camp, Project EK ZINDAGI), that the
+- Write the fixed body text in **Hindi and English together**, one after the other (the app sends no language choice). It must say who it is from (Jaipur road safety awareness camp, Project EK ZINDAGI), that the
   certificate is a hypothetical illustration, and how to opt out ("Reply STOP to stop messages").
 - **No** mention of challan, fine, penalty or offence. Have the final text reviewed by the police and a lawyer before
   the first real send.

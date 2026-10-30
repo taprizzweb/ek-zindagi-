@@ -69,7 +69,6 @@ bundled in `public/fonts`; Devanagari names and places fall back to Noto Serif D
 | `NGO_LOGO_PATH`        | none                                                                    | NGO logo, top left (beside the police logo when both are on).                                                                                                                |
 | `PARTNER_CREDIT_TEXT`  | none                                                                    | Printed as "Technology Partner: ..." in the footer.                                                                                                                          |
 | `DELIVERY_MODE`        | `bridge`                                                                | `bridge` or `cloud_api` (see below). One variable, no code change.                                                                                                           |
-| `MESSAGE_LANGUAGE`     | `hinglish`                                                              | `hinglish`, `hindi` (Devanagari) or `english`.                                                                                                                               |
 | `APP_BASE_URL`         | none                                                                    | Public https address of the app; the certificate link in the message starts with it.                                                                                         |
 
 > **Branding stays off until written permission is confirmed.** The police logo shows the State Emblem

@@ -1,7 +1,7 @@
 import type { AuditSink } from '@/lib/audit/audit';
 import type { ViolationKey } from '@/config/violations';
 import { AppError } from '@/lib/errors';
-import { buildMessage, whatsappUrl, type MessageLanguage } from './message';
+import { buildMessage, whatsappUrl } from './message';
 
 export const LINK_TTL_HOURS = 24;
 
@@ -30,7 +30,6 @@ export interface BridgeDeps {
   ports: BridgePorts;
   audit: AuditSink;
   baseUrl: string;
-  language: MessageLanguage;
   maxPerOfficerHour: number;
   newToken(): { token: string; hash: string };
   now(): Date;
@@ -80,7 +79,6 @@ export async function prepareBridgeDelivery(
     certCode: entry.certCode,
     violation: entry.violation,
     link: linkUrl,
-    language: deps.language,
   });
   await ports.markHandedOver(entryId);
   await deps.audit.record({

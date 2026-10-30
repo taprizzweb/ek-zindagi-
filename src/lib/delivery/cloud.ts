@@ -2,7 +2,7 @@ import type { AuditSink } from '@/lib/audit/audit';
 import type { ViolationKey } from '@/config/violations';
 import { AppError } from '@/lib/errors';
 import type { BridgePorts } from './bridge';
-import { templateBodyParams, type MessageLanguage } from './message';
+import { templateBodyParams } from './message';
 import { WhatsAppError, type SendTemplateInput } from './whatsapp/client';
 
 export interface CloudClaim {
@@ -41,7 +41,6 @@ export interface CloudDeps {
     uploadPdf(pdf: Buffer, filename: string): Promise<string>;
     sendTemplate(input: SendTemplateInput): Promise<{ messageId: string }>;
   };
-  language: MessageLanguage;
   /** The kill switch: true stops every send and every retry at once. */
   paused(): boolean | Promise<boolean>;
   maxPerOfficerHour: number;
@@ -74,7 +73,6 @@ async function deliverWithInlineRetries(deps: CloudDeps, claim: CloudClaim): Pro
       name: claim.personName!,
       certCode: claim.certCode,
       violation: claim.violation,
-      language: deps.language,
     });
   } catch (err) {
     console.warn('cloud_send_internal_error', errorName(err)); // an entry we cannot describe; retrying cannot help

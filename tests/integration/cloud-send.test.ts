@@ -209,7 +209,6 @@ const deps = (over: Partial<CloudDeps> = {}, timeoutMs = 3000): CloudDeps => ({
   ports: mem,
   audit,
   wa: new WhatsAppClient(cfg, fetch, timeoutMs),
-  language: 'hinglish',
   paused: () => paused,
   maxPerOfficerHour: 60,
   inlineAttempts: 3,
@@ -244,7 +243,7 @@ describe('a normal send', () => {
     expect(payload.template.components[0]!.parameters[0]!.document!.id).toMatch(/^media-/);
     expect(payload.template.components[1]!.parameters.map((p) => p.text)).toEqual([
       'Ravi Kumar',
-      'Helmet pehniye. Ghar par koi aapka intezaar kar raha hai.',
+      'हेलमेट पहनें। घर पर कोई आपका इंतज़ार कर रहा है। / Wear your helmet. Someone is waiting for you at home.',
       'EKZ-JPR-4ZK7MQ9',
     ]);
     expect(mem.rows.get('e1')).toMatchObject({
@@ -269,13 +268,15 @@ describe('a normal send', () => {
     expect(JSON.stringify(audit.events)).not.toMatch(/Ravi|9876543210|EKZ-JPR/);
   });
 
-  it('uses the configured message language for the safety line', async () => {
+  it('puts the safety line in Hindi and English together, on one line', async () => {
     mem.add();
-    await send('e1', deps({ language: 'english' }));
+    await send();
     const p = (
       messages()[0]!.json as { template: { components: { parameters: { text?: string }[] }[] } }
     ).template.components[1]!.parameters;
-    expect(p[1]!.text).toBe('Wear your helmet. Someone is waiting for you at home.');
+    expect(p[1]!.text).toMatch(/[\u0900-\u097F]/);
+    expect(p[1]!.text).toContain(' / Wear your helmet. Someone is waiting for you at home.');
+    expect(p[1]!.text).not.toContain('\n');
   });
 });
 

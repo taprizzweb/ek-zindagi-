@@ -64,15 +64,15 @@ Stand outdoors, then indoors.
 
 Send to the citizen phone.
 
-| #   | Check                                                                                                                                                   | A   | B   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- |
-| E1  | The number is shown again before sending ("is this number correct?"); "Wrong number?" goes back to fix it.                                              |     |     |
-| E2  | "Send on WhatsApp" opens WhatsApp (not a web page) with the message ready: short, Hinglish, no challan/fine wording, the STOP line, a link.             |     |     |
-| E3  | Sending from the officer's phone works; the citizen receives it.                                                                                        |     |     |
-| E4  | On the **citizen** phone, tapping the link shows the PDF (inside WhatsApp's browser and in Chrome). It reads properly in Hindi and English.             |     |     |
-| E5  | The status in the officer's list says "WhatsApp opened (not confirmed)" and then "Link opened by the person". It never says "delivered" in bridge mode. |     |     |
-| E6  | After 24 hours the link says it has expired.                                                                                                            |     |     |
-| E7  | Forward the link to a third phone within 24 hours: it opens (expected: the link is the credential). Note this for the lawyer.                           |     |     |
+| #   | Check                                                                                                                                                                              | A   | B   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | --- |
+| E1  | The number is shown again before sending ("is this number correct?"); "Wrong number?" goes back to fix it.                                                                         |     |     |
+| E2  | "Send on WhatsApp" opens WhatsApp (not a web page) with the message ready: short, Hindi and English together (no language switch), no challan/fine wording, the STOP line, a link. |     |     |
+| E3  | Sending from the officer's phone works; the citizen receives it.                                                                                                                   |     |     |
+| E4  | On the **citizen** phone, tapping the link shows the PDF (inside WhatsApp's browser and in Chrome). It reads properly in Hindi and English.                                        |     |     |
+| E5  | The status in the officer's list says "WhatsApp opened (not confirmed)" and then "Link opened by the person". It never says "delivered" in bridge mode.                            |     |     |
+| E6  | After 24 hours the link says it has expired.                                                                                                                                       |     |     |
+| E7  | Forward the link to a third phone within 24 hours: it opens (expected: the link is the credential). Note this for the lawyer.                                                      |     |     |
 
 ## F. Delivery, cloud API mode (`DELIVERY_MODE=cloud_api`)
 

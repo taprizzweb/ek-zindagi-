@@ -7,6 +7,7 @@ import { expect } from '@playwright/test';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import sharp from 'sharp';
 import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
+import { violationByKey } from '../../src/config/violations';
 import { pdfInfo, pdfText } from '../pdf/helpers';
 import { APP_PORT, APP_URL, FAKE_SUPABASE_PORT, appEnv } from './env';
 import { OFFICER, startFakeSupabase } from './fake-supabase';
@@ -645,16 +646,19 @@ describe('send on WhatsApp (bridge mode)', () => {
     await expect(page.getByRole('button', { name: /Send on WhatsApp/ })).toBeVisible();
   });
 
-  it('shows the message the person will get, in Hinglish, with no challan, fine or penalty wording', async () => {
+  it('shows the message the person will get, in Hindi and English together, with no challan, fine or penalty wording', async () => {
     const page = await phone();
     await openForm(page);
     await fillForm(page, { violation: 'overspeed' });
     await generate(page);
     const text = await page.getByTestId('message-preview').innerText();
-    expect(text).toContain('Namaste Ravi Kumar ji');
+    expect(text).toContain('नमस्ते Ravi Kumar जी / Hello Ravi Kumar');
     expect(text).toContain('Jaipur road safety awareness camp (Project EK ZINDAGI)');
-    expect(text).toContain('kaalpanik chitran');
-    expect(text).toContain('Raftaar minute bachati hai, zindagi nahi.');
+    expect(text).toContain('जयपुर सड़क सुरक्षा जागरूकता शिविर');
+    expect(text).toContain('काल्पनिक चित्रण');
+    expect(text).toContain('hypothetical illustration');
+    expect(text).toContain(violationByKey('overspeed').lineHi);
+    expect(text).toContain(violationByKey('overspeed').lineEn);
     expect(text).toContain('*STOP*');
     expect(text).not.toMatch(BANNED);
     expect(text).not.toMatch(/violation|offence|offense|ticket|court/i);
@@ -669,7 +673,7 @@ describe('send on WhatsApp (bridge mode)', () => {
 
     expect(url.origin + url.pathname).toBe('https://wa.me/919876543210');
     const message = url.searchParams.get('text')!;
-    expect(message).toContain('Namaste Ravi Kumar ji');
+    expect(message).toContain('नमस्ते Ravi Kumar जी / Hello Ravi Kumar');
     expect(message).not.toMatch(BANNED);
     const link = LINK_RE.exec(message)![1]!;
 

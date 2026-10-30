@@ -22,7 +22,6 @@ const serverObject = z.object({
   /** Public https address of this app; certificate links in WhatsApp messages start with it. */
   APP_BASE_URL: z.url(),
   DELIVERY_MODE: z.enum(['bridge', 'cloud_api']).default('bridge'),
-  MESSAGE_LANGUAGE: z.enum(['hinglish', 'hindi', 'english']).default('hinglish'),
   CAMPAIGN_PAUSED: z
     .enum(['true', 'false'])
     .default('false')

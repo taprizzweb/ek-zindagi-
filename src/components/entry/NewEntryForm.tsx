@@ -10,7 +10,7 @@ import {
   type OtherChoiceKey,
   type ViolationKey,
 } from '@/config/violations';
-import { buildMessage, type MessageLanguage } from '@/lib/delivery/message';
+import { buildMessage } from '@/lib/delivery/message';
 import { formatTenDigits, normalizeIndianMobile } from '@/lib/domain/phone';
 import { messageFor, type Bilingual } from '@/lib/i18n/messages';
 import { nameSchema } from '@/lib/validation/entry';
@@ -73,13 +73,11 @@ function clockText(d: Date): string {
 export default function NewEntryForm({
   allowGallery,
   branding,
-  messageLanguage,
   baseUrl,
   deliveryMode,
 }: {
   allowGallery: boolean;
   branding: ClientBranding;
-  messageLanguage: MessageLanguage;
   baseUrl: string;
   deliveryMode: 'bridge' | 'cloud_api';
 }) {
@@ -380,7 +378,6 @@ export default function NewEntryForm({
               certCode: created?.certCode ?? '',
               violation: violation || 'other',
               link: `${baseUrl.replace(/\/+$/, '')}/c/••••••••••••••••••••••`,
-              language: messageLanguage,
             })}
           </div>
         </div>

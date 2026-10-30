@@ -14,7 +14,6 @@ export default async function SettingsPage() {
   const branding = brandingFromEnv();
   const fixed: [string, string][] = [
     ['DELIVERY_MODE', env.DELIVERY_MODE],
-    ['MESSAGE_LANGUAGE', env.MESSAGE_LANGUAGE],
     ['SHOW_POLICE_BRANDING', branding.showPolice ? 'true' : 'false'],
     ['DEDUPE_HOURS', String(env.DEDUPE_HOURS)],
   ];
