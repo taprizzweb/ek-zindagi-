@@ -52,12 +52,12 @@ describe('brandingFromEnv', () => {
     expect(files.read).not.toHaveBeenCalled();
   });
 
-  it('with the flag on, uses reference/police_logo.png unless another path is set', () => {
+  it('with the flag on, uses assets/branding/jaipur-police.png unless another path is set', () => {
     const opened: string[] = [];
     const files: FileAccess = { size: () => 10, read: (p) => (opened.push(p), PNG) };
     brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' }, files);
     expect(opened).toHaveLength(1);
-    expect(opened[0]!.endsWith(`${'reference'}/police_logo.png`)).toBe(true);
+    expect(opened[0]!.endsWith('assets/branding/jaipur-police.png')).toBe(true);
     opened.length = 0;
     brandingFromEnv({ SHOW_POLICE_BRANDING: 'true', POLICE_LOGO_PATH: rel('police.jpg') }, files);
     expect(opened[0]!.endsWith('police.jpg')).toBe(true);

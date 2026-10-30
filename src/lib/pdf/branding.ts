@@ -10,7 +10,7 @@ const MIME: Record<string, string> = {
 };
 const MAX_LOGO_BYTES = 300_000;
 /** Used for the police logo when branding is on and POLICE_LOGO_PATH is not set. */
-export const DEFAULT_POLICE_LOGO_PATH = 'reference/police_logo.png';
+export const DEFAULT_POLICE_LOGO_PATH = 'assets/branding/jaipur-police.png';
 
 /** File access, injectable so tests can prove which files are (not) opened. */
 export interface FileAccess {

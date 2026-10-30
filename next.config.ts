@@ -16,7 +16,7 @@ const securityHeaders = [
 const CERTIFICATE_FILES = [
   './public/fonts/**/*',
   './src/components/certificate/certificate.css',
-  './reference/police_logo.png',
+  './assets/branding/jaipur-police.png',
   './node_modules/@sparticuz/chromium/bin/**/*',
   './node_modules/react/**/*',
   './node_modules/react-dom/**/*',
