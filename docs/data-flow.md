@@ -69,7 +69,7 @@ The browser can read the database only with an officer's own sign-in and only th
 2. "Generate certificate": the server renders the PDF from the saved data. The photo is placed in the frame.
 3. "Send": cloud API mode sends the template message with the PDF as a file in the person's chat (bridge mode, the fallback, opens WhatsApp on the officer's phone with a 24-hour link).
 4. If the person replies STOP, their number's hash goes on the opt-out list (the only thing kept about a number).
-5. **Deletion.** The moment WhatsApp accepts the message the server deletes the files, checks they are gone, then clears name, number, number hash, note and file paths. A sweep every 10 minutes catches anything missed. A supervisor or admin can do this at once for one entry from "Requests from citizens" (by the code on the certificate).
+5. **Deletion.** The moment WhatsApp accepts the message the server deletes the files, checks they are gone, then clears name, number, number hash, note and file paths. A daily sweep (more often on a paid plan) catches anything missed. A supervisor or admin can do this at once for one entry from "Requests from citizens" (by the code on the certificate).
 6. What remains is the table of non-personal fields above.
 
 ## Checking that deletion works
