@@ -231,11 +231,12 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 734px;
+  top: 733px;
   text-align: center;
-  font-size: 10px;
-  letter-spacing: 0.3px;
-  color: #6b5a48;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #1a1209;
 }
 .cert .br {
   position: absolute;
@@ -251,7 +252,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 748px;
+  top: 752px;
   text-align: center;
   font-size: 10px;
   letter-spacing: 0.3px;

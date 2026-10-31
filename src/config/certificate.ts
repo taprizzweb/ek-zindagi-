@@ -29,6 +29,8 @@ export const CERTIFICATE_TEXT = {
   disclaimer:
     'Hypothetical road safety awareness illustration. Not a death certificate, accident report or legal document. No harm has occurred to the person named.',
   technologyPartner: 'Technology Partner',
+  /** Printed in the footer of every certificate unless PARTNER_CREDIT_TEXT replaces it. */
+  partnerLine: 'Project EK ZINDAGI by Taprizz × Chitrakatha (homestay)',
 } as const;
 
 /** Labels and column layout of the checklist printed on the certificate. */

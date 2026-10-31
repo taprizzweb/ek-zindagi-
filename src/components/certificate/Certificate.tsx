@@ -122,7 +122,9 @@ export default function Certificate({ view }: { view: CertificateView }) {
         <div className="credit">
           {T.technologyPartner}: {view.partnerCredit}
         </div>
-      ) : null}
+      ) : (
+        <div className="credit">{T.partnerLine}</div>
+      )}
       <div className="br">{view.showPolice ? T.signaturePolice : T.signatureCampaign}</div>
       <div className="disc">{T.disclaimer}</div>
     </div>

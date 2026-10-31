@@ -29,6 +29,8 @@ const FRAME_AREA = { x: 48, y: 250, w: 430, h: 410 };
 /** The logo image was replaced with the final one, so it is not compared with the reference either. */
 const LOGO_AREA = { x: 40, y: 36, w: 140, h: 130 };
 /** The place label now reads "At" (it said "Last seen alive", which the headline sentence already says). */
+/** The partner line and the disclaimer under it moved down a few px: the footer strip is not compared. */
+const PARTNER_LINE = { x: 0, y: 724, w: 1123, h: 50 };
 const PLACE_LABEL = { x: 780, y: 398, w: 280, h: 28 };
 const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
 
@@ -253,14 +255,15 @@ describe('long text fits (auto-shrink)', () => {
     const ref = readPng('reference/certificate_v2.png');
     const d = blockDifference(ours, ref, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, { x: 470, y: 400, w: 600, h: 120 }],
+      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE, { x: 470, y: 400, w: 600, h: 120 }],
     });
-    expect(d.ratio).toBeLessThan(0.025);
+    // 0.026: the ignored footer strip leaves fewer blocks to divide by; the number of differing blocks is unchanged.
+    expect(d.ratio).toBeLessThan(0.026);
     const dateAndPlace = blockDifference(ours, ref, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL],
+      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE],
     });
-    expect(dateAndPlace.ratio).toBeLessThan(0.025);
+    expect(dateAndPlace.ratio).toBeLessThan(0.026);
   });
 });
 
@@ -355,6 +358,7 @@ describe('PNG export (Download image)', () => {
       ignore: [
         FRAME_AREA,
         PLACE_LABEL,
+        PARTNER_LINE,
         { x: 100, y: 172, w: 940, h: 34 },
         { x: 790, y: 708, w: 290, h: 34 },
       ],
@@ -377,6 +381,7 @@ describe('visual regression against the approved design', () => {
       ignore: [
         FRAME_AREA,
         PLACE_LABEL,
+        PARTNER_LINE,
         { x: 100, y: 172, w: 940, h: 34 }, // subtitle: "Issued by Jaipur Traffic Police" -> campaign wording
         { x: 790, y: 708, w: 290, h: 34 }, // signature line
       ],
@@ -389,7 +394,7 @@ describe('visual regression against the approved design', () => {
     const ours = rasterize(await createCertificatePdf(approved, POLICE));
     const d = blockDifference(ours, REF_LOGO, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, LOGO_AREA],
+      ignore: [FRAME_AREA, PLACE_LABEL, LOGO_AREA, PARTNER_LINE],
     });
     process.stderr.write(`v2 + logo: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
     expect(d.ratio).toBeLessThan(0.025);
