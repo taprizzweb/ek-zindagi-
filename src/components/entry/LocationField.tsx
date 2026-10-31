@@ -89,7 +89,16 @@ export default function LocationField({
           ✓ लोकेशन मिल गई / Location confirmed
         </p>
       ) : null}
-      {gps.status === 'ok' && gps.accuracy > 100 ? (
+      {gps.status === 'ok' && gps.accuracy > 500 ? (
+        <p role="alert" className="font-semibold text-danger">
+          फ़ोन सिर्फ़ मोटा (approximate) लोकेशन दे रहा है, करीब {gps.accuracy} मीटर तक गलत। एड्रेस
+          बार के ताले 🔒 पर दबाएँ → अनुमतियाँ → लोकेशन → “सटीक / Precise” चालू करें, फिर “फिर से
+          लोकेशन लें” दबाएँ। / The phone is giving only an approximate location, off by about{' '}
+          {gps.accuracy} m. Tap the lock 🔒 in the address bar → Permissions → Location → turn on
+          “Precise”, then tap “Try GPS again”.
+        </p>
+      ) : null}
+      {gps.status === 'ok' && gps.accuracy > 100 && gps.accuracy <= 500 ? (
         <p role="alert" className="font-semibold text-danger">
           लोकेशन लगभग {gps.accuracy} मीटर तक गलत हो सकती है। जगह का नाम जाँचें या बाहर खुले में जाकर
           “फिर से लोकेशन लें” दबाएँ। / The location may be off by about {gps.accuracy} m. Check the

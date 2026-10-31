@@ -3,15 +3,18 @@ export type GeoResult =
   | { ok: false; reason: 'denied' | 'unavailable' | 'timeout' | 'unsupported' };
 
 /** Good enough to name a street: stop waiting for a better fix. */
-const GOOD_ENOUGH_M = 30;
+const GOOD_ENOUGH_M = 50;
+/** After this long, a reading within 150 m is accepted instead of waiting for a better one. */
+const SETTLE_MS = 5_000;
+const SETTLE_M = 150;
 
 /**
  * A GPS fix. The first reading a phone gives is often a rough one (towers or a cached spot, sometimes
  * kilometres off), so this listens for up to `timeoutMs` and keeps the most accurate reading, stopping
- * early once it is within 30 m. If the GPS chip gives nothing at all (indoors, weak sky) it asks once more
+ * early once it is within 50 m (or within 150 m after 5 s). If the GPS chip gives nothing at all (indoors, weak sky) it asks once more
  * for the network position, which is rougher; `accuracy` (metres) tells the caller how rough.
  */
-export async function getPosition(timeoutMs = 15_000): Promise<GeoResult> {
+export async function getPosition(timeoutMs = 12_000): Promise<GeoResult> {
   const first = await watchBest(timeoutMs);
   if (first.ok || first.reason === 'denied' || first.reason === 'unsupported') return first;
   const second = await getPositionOnce(8_000);
@@ -53,6 +56,9 @@ function watchBest(timeoutMs: number): Promise<GeoResult> {
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs },
     );
+    setTimeout(() => {
+      if (best?.ok && best.accuracy <= SETTLE_M) finish(best);
+    }, SETTLE_MS);
     timer = setTimeout(() => finish(best ?? lastError), timeoutMs);
   });
 }
