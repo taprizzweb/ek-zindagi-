@@ -62,7 +62,7 @@ What it cannot stop, and you must handle by other means:
 - Sending deletes the data at once; the sweep that catches leftovers runs daily on the free plan, so a failed send that is never retried can stay until the next sweep after its expiry. The self-check flags anything more than two hours late.
 - Scheduled jobs at this frequency need a Vercel plan that allows them, or another scheduler.
 - Names and places are limited to Latin and Devanagari letters because those are the scripts the certificate fonts cover.
-- The certificate says "Issued by Jaipur Traffic Police" and carries the police logo only when `SHOW_POLICE_BRANDING=true`.
+- The certificate carries the police logo only when `SHOW_POLICE_BRANDING=true`. It never prints the police name.
 
 ## 4. To confirm with a lawyer
 

@@ -39,12 +39,26 @@
   position: absolute;
   object-fit: contain;
 }
+.cert .c-logo-police {
+  left: 48px;
+  top: 44px;
+  height: 112px;
+  width: auto;
+  max-width: 130px;
+}
 .cert .c-logo-ngo {
   left: 48px;
   top: 44px;
   height: 90px;
   width: auto;
   max-width: 130px;
+}
+/* On top of everything (it also crosses the photo) but light enough that the text underneath stays readable. */
+.cert .c-logo-ngo.beside {
+  left: 156px;
+  top: 56px;
+  height: 80px;
+  max-width: 90px;
 }
 /* On top of everything (it also crosses the photo) but light enough that the text underneath stays readable. */
 .cert .wm {

@@ -38,14 +38,23 @@ const CRACKS = [
  * set by fitAll() through the data-fit attributes.
  *
  * Stamp, watermark and disclaimer are always rendered: nothing in `view` can remove them.
- * The police name and logo are never printed on it.
+ * The police logo is printed only when police branding is on (SHOW_POLICE_BRANDING=true); the police
+ * name is never printed.
  */
 export default function Certificate({ view }: { view: CertificateView }) {
+  const policeLogo = view.showPolice && view.policeLogoSrc ? view.policeLogoSrc : null;
   return (
     <div className="cert" id="cert" data-testid="certificate">
       <div className="bd1" />
       <div className="bd2" />
-      {view.ngoLogoSrc ? <img className="c-logo c-logo-ngo" src={view.ngoLogoSrc} alt="" /> : null}
+      {policeLogo ? <img className="c-logo c-logo-police" src={policeLogo} alt="" /> : null}
+      {view.ngoLogoSrc ? (
+        <img
+          className={`c-logo c-logo-ngo${policeLogo ? ' beside' : ''}`}
+          src={view.ngoLogoSrc}
+          alt=""
+        />
+      ) : null}
       <div className="c-head" data-fit="830,150,95,60">
         {T.headline}
       </div>

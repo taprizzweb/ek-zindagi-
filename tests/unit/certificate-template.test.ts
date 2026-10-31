@@ -185,15 +185,27 @@ describe('wording', () => {
 });
 
 describe('police branding', () => {
-  it('is never printed: no police name, no police logo, whatever the branding says', () => {
-    for (const branding of [...brandings, POLICE, { showPolice: true }]) {
+  it('off: no police logo, whatever file is given', () => {
+    for (const branding of [
+      { showPolice: false },
+      { showPolice: false, policeLogoDataUri: 'data:image/png;base64,POLICELOGO' },
+    ] as Branding[]) {
       const html = buildCertificateHtml(base, branding);
       expect(html).not.toContain('POLICELOGO');
       expect(markup(html)).not.toContain('c-logo-police');
-      expect(html).not.toContain('Traffic Inspector');
-      expect(html).not.toContain('Jaipur Traffic Police');
-      expect(html).toContain('<div class="c-sub">Certificate of recklessness on road</div>');
-      expect(html).toContain('<div class="br">Road Safety Awareness Campaign</div>');
+    }
+  });
+
+  it('on: the police logo is printed top left; no police name is printed either way', () => {
+    const html = buildCertificateHtml(base, POLICE);
+    expect(html).toContain('class="c-logo c-logo-police" src="data:image/png;base64,POLICELOGO"');
+    expect(markup(buildCertificateHtml(base, { showPolice: true }))).not.toContain('c-logo-police'); // no file: no broken image
+    for (const branding of [...brandings, POLICE, { showPolice: true }]) {
+      const text = buildCertificateHtml(base, branding);
+      expect(text).not.toContain('Traffic Inspector');
+      expect(text).not.toContain('Jaipur Traffic Police');
+      expect(text).toContain('<div class="c-sub">Certificate of recklessness on road</div>');
+      expect(text).toContain('<div class="br">Road Safety Awareness Campaign</div>');
     }
   });
 
