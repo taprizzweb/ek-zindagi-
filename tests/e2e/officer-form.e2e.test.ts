@@ -192,15 +192,69 @@ describe('officer form: live preview', () => {
     const page = await phone();
     await openForm(page);
     await expect(cert(page)).toBeVisible();
-    await expect(cert(page).locator('.c-head')).toHaveText('MIGHT DIE SOON');
+    await expect(cert(page).locator('.c-head')).toHaveText('ONE MISTAKE AWAY');
     await expect(cert(page).locator('.c-name')).toHaveText('Sample Name');
     await expect(cert(page).locator('.opt.sel')).toHaveCount(0); // no violation chosen yet
     await expect(cert(page).locator('.disc')).toContainText(
-      'Hypothetical road safety awareness illustration',
+      'Awareness campaign illustration. Not a legal document, accident report or police notice.',
     );
     await expect(cert(page).locator('.stamp')).toContainText('FOR AWARENESS');
     await expect(cert(page).locator('.stamp')).not.toContainText(/hypothetical/i);
-    await expect(cert(page).locator('.wm')).toContainText('NOT A LEGAL DOCUMENT');
+    await expect(cert(page).locator('.wm')).toHaveText('AWARENESS ONLY');
+  });
+
+  it('at 360 px wide: new certificate wording, cracked glass, watermark and bar, no police logo, a long name and place overlap nothing', async () => {
+    const page = await phone();
+    await openForm(page);
+    await page.locator('#name').fill('Ramachandran Venkataraghavan Subramaniam Iyer');
+    await page.selectOption('#violation', 'other');
+    const place = page.locator('#place');
+    await place.waitFor();
+    await place.fill('Near Jawahar Circle Garden Gate No 3, Malviya Nagar, Jaipur Rajasthan India');
+    const c = cert(page);
+    await expect(c.locator('.c-head')).toHaveText('ONE MISTAKE AWAY');
+    await expect(c.locator('.c-sub')).toHaveText('Certificate of recklessness on road');
+    await expect(c.locator('.last')).toHaveText('was caught on camera on');
+    await expect(c.locator('.bc')).toHaveText('This could have been your last ride.');
+    await expect(c.locator('.br')).toHaveText('Road Safety Awareness Campaign');
+    await expect(c.locator('.disc')).toContainText(
+      'Not a legal document, accident report or police notice',
+    );
+    await expect(c.locator('.wm')).toHaveText('AWARENESS ONLY');
+    await expect(c.locator('.c-logo')).toHaveCount(0); // no police logo
+    expect(await c.locator('svg.c-art polyline').count()).toBeGreaterThan(10); // the cracks
+    expect(await c.locator('svg.c-art image').count()).toBe(0); // no garland picture, no frame picture
+    // Nothing overlaps: measured in the certificate's own pixels (the preview scales it down).
+    const boxes = await c.evaluate((root) => {
+      const r = (sel: string) => {
+        const b = root.querySelector(sel)!.getBoundingClientRect();
+        const o = root.getBoundingClientRect();
+        const k = 1123 / o.width;
+        return {
+          top: (b.top - o.top) * k,
+          bottom: (b.bottom - o.top) * k,
+          right: (b.right - o.left) * k,
+        };
+      };
+      return {
+        name: r('.c-name'),
+        last: r('.last'),
+        date: r('.c-datebox'),
+        loc: r('.c-locbox .big'),
+        committing: r('.committing'),
+        disc: r('.disc'),
+        credit: r('.credit'),
+        bc: r('.bc'),
+      };
+    });
+    expect(boxes.name.bottom).toBeLessThanOrEqual(boxes.last.top + 4);
+    expect(boxes.loc.bottom).toBeLessThanOrEqual(boxes.committing.top);
+    expect(boxes.bc.bottom).toBeLessThanOrEqual(boxes.credit.top + 2);
+    expect(boxes.credit.bottom).toBeLessThanOrEqual(boxes.disc.top + 1);
+    expect(boxes.name.right).toBeLessThanOrEqual(1070);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
   });
 
   it('updates as the officer types and chooses, without pressing anything', async () => {
@@ -224,11 +278,11 @@ describe('officer form: live preview', () => {
   it('shows the photo in the frame as soon as it is taken, and the silhouette again after removing it', async () => {
     const page = await phone();
     await openForm(page);
-    await expect(cert(page).locator('image')).toHaveCount(1); // only the frame
+    await expect(cert(page).locator('image')).toHaveCount(0); // the frame is drawn, not a picture
     await takePhoto(page);
-    await expect(cert(page).locator('image')).toHaveCount(2);
-    await page.getByRole('button', { name: /Remove photo/ }).click();
     await expect(cert(page).locator('image')).toHaveCount(1);
+    await page.getByRole('button', { name: /Remove photo/ }).click();
+    await expect(cert(page).locator('image')).toHaveCount(0);
   });
 
   it('shrinks long text to fit, as the PDF does', async () => {
@@ -379,7 +433,7 @@ describe('officer form: generate, download', () => {
     expect(pdfInfo(pdf).Title).toContain(String(entry.cert_code));
     const text = pdfText(pdf).toUpperCase();
     for (const s of [
-      'MIGHT DIE SOON',
+      'ONE MISTAKE AWAY',
       'RAVI KUMAR',
       'SAMPLE CHAURAHA, JAIPUR',
       'RIDER WITHOUT HELMET',
@@ -388,6 +442,7 @@ describe('officer form: generate, download', () => {
       expect(text, s).toContain(s);
     }
     expect(text.replace(/[^A-Z]/g, '')).toContain('NOTALEGALDOCUMENT');
+    expect(text.replace(/[^A-Z]/g, '')).toContain('AWARENESSONLY');
     expect(pdfText(pdf)).not.toMatch(BANNED);
     // The audit trail has no personal data.
     expect(fake.state.audit.map((a) => a.action)).toEqual([

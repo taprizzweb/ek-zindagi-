@@ -15,7 +15,7 @@ export async function stampMetadata(
   const when = `${dateText}, ${timeText}`;
   doc.setTitle(`EK ZINDAGI awareness certificate ${certCode}`);
   doc.setSubject(
-    `Hypothetical road safety awareness illustration. Code ${certCode}. Issued ${when} IST.`,
+    `Awareness campaign illustration. Not a legal document. Code ${certCode}. Issued ${when} IST.`,
   );
   doc.setKeywords([certCode, createdAt.toISOString(), 'FOR AWARENESS PURPOSE ONLY']);
   doc.setAuthor('Project EK ZINDAGI');

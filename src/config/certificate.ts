@@ -6,28 +6,20 @@
 import type { ViolationKey } from './violations';
 
 export const CERTIFICATE_TEXT = {
-  headline: 'MIGHT DIE SOON',
+  headline: 'ONE MISTAKE AWAY',
   subtitleBase: 'Certificate of recklessness on road',
-  /** Used when police branding is on. */
-  subtitlePolice: 'Issued by Jaipur Traffic Police',
-  /** Used when it is off. */
-  subtitleCampaign: 'Project EK ZINDAGI · Jaipur',
   certifies: 'This certifies that',
-  lastSeenPrefix: 'was last seen',
-  alive: 'alive',
-  lastSeenSuffix: 'on',
+  caughtOnCamera: 'was caught on camera on',
   dateLabel: 'Date & time',
   placeLabel: 'At',
   committing: 'while committing this traffic offence:',
   issuedAt: 'Issued at Jaipur',
-  centreLine: 'The next frame will not be a joke.',
-  /** Signature line: police wording only when police branding is on. */
-  signaturePolice: 'Traffic Inspector, Jaipur Traffic Police',
-  signatureCampaign: 'Project EK ZINDAGI · Awareness camp',
+  centreLine: 'This could have been your last ride.',
+  signature: 'Road Safety Awareness Campaign',
   stamp: ['FOR AWARENESS', 'PURPOSE ONLY'],
-  watermark: ['FOR AWARENESS PURPOSE ONLY', 'NOT A LEGAL DOCUMENT'],
+  watermark: 'AWARENESS ONLY',
   disclaimer:
-    'Hypothetical road safety awareness illustration. Not a death certificate, accident report or legal document. No harm has occurred to the person named.',
+    'Awareness campaign illustration. Not a legal document, accident report or police notice. No harm has occurred to the person named.',
   technologyPartner: 'Technology Partner',
   /** Printed in the footer of every certificate unless PARTNER_CREDIT_TEXT replaces it. */
   partnerLine: 'Project EK ZINDAGI by Taprizz × Chitrakatha (homestay)',

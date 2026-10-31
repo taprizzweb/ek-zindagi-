@@ -54,8 +54,7 @@ function markup(html: string): string {
 const MUST_HAVE = [
   'class="stamp"',
   'FOR AWARENESS<br/>PURPOSE ONLY',
-  'class="wm"',
-  'FOR AWARENESS PURPOSE ONLY<br/>NOT A LEGAL DOCUMENT',
+  'class="wm">AWARENESS ONLY</div>',
   `class="disc">${CERTIFICATE_TEXT.disclaimer}</div>`,
 ];
 
@@ -91,13 +90,12 @@ describe('hard rules: stamp, watermark and disclaimer are always in the certific
     }
   });
 
-  it('the stamp reads "FOR AWARENESS PURPOSE ONLY" and the word HYPOTHETICAL appears nowhere as a stamp', () => {
+  it('the stamp reads "FOR AWARENESS PURPOSE ONLY" and the word HYPOTHETICAL appears nowhere', () => {
     const html = buildCertificateHtml(base);
     const stamp = /<div class="stamp">([\s\S]*?)<\/div>/.exec(html)![1]!;
     expect(stamp).toBe('FOR AWARENESS<br/>PURPOSE ONLY');
     expect(stamp).not.toMatch(/hypothetical/i);
-    // The disclaimer itself says "Hypothetical road safety awareness illustration" (as the design requires).
-    expect(visibleText(html).match(/hypothetical/gi)).toHaveLength(1);
+    expect(visibleText(html)).not.toMatch(/hypothetical/i);
   });
 });
 
@@ -148,12 +146,15 @@ describe('wording', () => {
   it('says what the design says', () => {
     const text = visibleText(buildCertificateHtml(base));
     for (const s of [
-      'MIGHT DIE SOON',
+      'ONE MISTAKE AWAY',
+      'Certificate of recklessness on road',
       'This certifies that',
       'Ravi Kumar',
-      'was last seen alive on',
+      'was caught on camera on',
       'while committing this traffic offence:',
-      'The next frame will not be a joke.',
+      'This could have been your last ride.',
+      'Road Safety Awareness Campaign',
+      'Project EK ZINDAGI by Taprizz × Chitrakatha (homestay)',
       'Issued at Jaipur',
       'Certificate No. EKZ-JPR-4ZK7MQ9',
       CERTIFICATE_TEXT.disclaimer,
@@ -172,37 +173,28 @@ describe('wording', () => {
     expect(text).not.toContain('Someone is waiting for you at home');
     expect(text).not.toContain('एक ज़िंदगी');
     expect(text).not.toContain('YOUR NEXT MISTAKE');
+    for (const gone of [
+      'MIGHT DIE SOON',
+      'was last seen alive',
+      'The next frame will not be a joke',
+      'Issued by Jaipur Traffic Police',
+      'Traffic Inspector',
+    ])
+      expect(text).not.toContain(gone);
   });
 });
 
 describe('police branding', () => {
-  it('off: no police wording, no logo, neutral signature line', () => {
-    for (const html of [
-      buildCertificateHtml(base),
-      buildCertificateHtml(base, {
-        showPolice: false,
-        policeLogoDataUri: 'data:image/png;base64,POLICELOGO',
-      }),
-    ]) {
-      expect(markup(html)).not.toMatch(/police/i);
+  it('is never printed: no police name, no police logo, whatever the branding says', () => {
+    for (const branding of [...brandings, POLICE, { showPolice: true }]) {
+      const html = buildCertificateHtml(base, branding);
       expect(html).not.toContain('POLICELOGO');
+      expect(markup(html)).not.toContain('c-logo-police');
       expect(html).not.toContain('Traffic Inspector');
-      expect(html).toContain('Certificate of recklessness on road · Project EK ZINDAGI · Jaipur');
-      expect(html).toContain('Project EK ZINDAGI · Awareness camp');
+      expect(html).not.toContain('Jaipur Traffic Police');
+      expect(html).toContain('<div class="c-sub">Certificate of recklessness on road</div>');
+      expect(html).toContain('<div class="br">Road Safety Awareness Campaign</div>');
     }
-  });
-
-  it('on: subtitle, signature line and logo', () => {
-    const html = buildCertificateHtml(base, POLICE);
-    expect(html).toContain('Certificate of recklessness on road · Issued by Jaipur Traffic Police');
-    expect(html).toContain('Traffic Inspector, Jaipur Traffic Police');
-    expect(html).toContain('class="c-logo c-logo-police" src="data:image/png;base64,POLICELOGO"');
-  });
-
-  it('on but no logo file: wording only, no broken image', () => {
-    const html = buildCertificateHtml(base, { showPolice: true });
-    expect(markup(html)).not.toContain('c-logo-police');
-    expect(html).toContain('Issued by Jaipur Traffic Police');
   });
 
   it('NGO logo and partner credit show only when configured, partner text is escaped', () => {

@@ -39,13 +39,6 @@
   position: absolute;
   object-fit: contain;
 }
-.cert .c-logo-police {
-  left: 48px;
-  top: 44px;
-  height: 112px;
-  width: auto;
-  max-width: 130px;
-}
 .cert .c-logo-ngo {
   left: 48px;
   top: 44px;
@@ -53,24 +46,21 @@
   width: auto;
   max-width: 130px;
 }
-.cert .c-logo-ngo.beside {
-  left: 156px;
-  top: 56px;
-  height: 80px;
-  max-width: 90px;
-}
+/* On top of everything (it also crosses the photo) but light enough that the text underneath stays readable. */
 .cert .wm {
   position: absolute;
   left: 0;
-  top: 330px;
+  top: 322px;
   width: 1123px;
   text-align: center;
-  transform: rotate(-12deg);
+  transform: rotate(-25deg);
   font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
-  font-size: 44px;
-  letter-spacing: 6px;
-  line-height: 1.4;
-  color: rgba(125, 16, 16, 0.055);
+  font-size: 150px;
+  font-weight: 400;
+  letter-spacing: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(176, 24, 24, 0.17);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -103,7 +93,7 @@
 .cert .c-art {
   position: absolute;
   left: 62px;
-  top: 262px;
+  top: 228px;
   width: 400px;
   height: 385px;
   display: block;
@@ -111,7 +101,7 @@
 .cert .certifies {
   position: absolute;
   left: 478px;
-  top: 279px;
+  top: 245px;
   font-size: 13px;
   letter-spacing: 3.4px;
   color: #7d1010;
@@ -120,7 +110,7 @@
 .cert .c-name {
   position: absolute;
   left: 478px;
-  top: 304px;
+  top: 270px;
   width: 582px;
   height: 54px;
   border-bottom: 2px solid #1a1209;
@@ -133,7 +123,7 @@
 .cert .last {
   position: absolute;
   left: 478px;
-  top: 370px;
+  top: 336px;
   font-size: 20px;
 }
 .cert .last b {
@@ -148,13 +138,13 @@
 .cert .c-datebox {
   position: absolute;
   left: 478px;
-  top: 404px;
+  top: 370px;
   width: 290px;
 }
 .cert .c-locbox {
   position: absolute;
   left: 792px;
-  top: 404px;
+  top: 370px;
   width: 268px;
 }
 .cert .big {
@@ -170,13 +160,13 @@
 .cert .committing {
   position: absolute;
   left: 478px;
-  top: 548px;
+  top: 514px;
   font-size: 20px;
 }
 .cert .c-viol {
   position: absolute;
   left: 478px;
-  top: 582px;
+  top: 548px;
   width: 582px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -206,14 +196,14 @@
   position: absolute;
   left: 62px;
   right: 63px;
-  top: 693px;
+  top: 659px;
   height: 2px;
   background: #1a1209;
 }
 .cert .bl {
   position: absolute;
   left: 62px;
-  top: 703px;
+  top: 669px;
   font-size: 12.5px;
   line-height: 18px;
 }
@@ -221,7 +211,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 715px;
+  top: 681px;
   text-align: center;
   font-style: italic;
   font-size: 15px;
@@ -231,7 +221,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 733px;
+  top: 699px;
   text-align: center;
   font-size: 13px;
   font-weight: 700;
@@ -241,22 +231,29 @@
 .cert .br {
   position: absolute;
   right: 63px;
-  top: 716px;
+  top: 682px;
   width: 260px;
   text-align: right;
   font-size: 12.5px;
   border-top: 1px solid #9a8f80;
   padding-top: 3px;
 }
+/* Its own bar at the bottom: dark, light text, large. */
 .cert .disc {
   position: absolute;
-  left: 0;
-  width: 1123px;
-  top: 752px;
+  left: 62px;
+  right: 62px;
+  top: 718px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
   text-align: center;
-  font-size: 10px;
-  letter-spacing: 0.3px;
-  color: #6b5a48;
+  font-size: 17px;
+  line-height: 20px;
+  background: #1a1209;
+  color: #faf3e0;
 }
 .cert .stamp {
   position: absolute;

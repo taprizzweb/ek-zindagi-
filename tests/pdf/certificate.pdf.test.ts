@@ -10,28 +10,11 @@ import { brandingFromEnv } from '@/lib/pdf/branding';
 import { createCertificatePdf, createCertificatePng } from '@/lib/pdf/certificate';
 import { renderPdf } from '@/lib/pdf/render';
 import { buildCertificateHtml, type Branding, type CertificateData } from '@/lib/pdf/template';
-import {
-  blockDifference,
-  pdfFonts,
-  pdfInfo,
-  pdfText,
-  pixel,
-  rasterize,
-  readPng,
-  sample,
-} from './helpers';
+import { blockDifference, pdfFonts, pdfInfo, pdfText, pixel, rasterize, sample } from './helpers';
 
 const MAX_BYTES = 1.5 * 1024 * 1024;
 const MAX_MS = 5000;
 const UPDATE = process.env.UPDATE_SNAPSHOTS === '1';
-/** The photo frame with its garland was redrawn after the reference images were approved, so they no longer cover it. */
-const FRAME_AREA = { x: 48, y: 250, w: 430, h: 410 };
-/** The logo image was replaced with the final one, so it is not compared with the reference either. */
-const LOGO_AREA = { x: 40, y: 36, w: 140, h: 130 };
-/** The place label now reads "At" (it said "Last seen alive", which the headline sentence already says). */
-/** The partner line and the disclaimer under it moved down a few px: the footer strip is not compared. */
-const PARTNER_LINE = { x: 0, y: 724, w: 1123, h: 50 };
-const PLACE_LABEL = { x: 780, y: 398, w: 280, h: 28 };
 const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
 
 /** The letters of a string, upper-cased: robust against how the PDF text extractor spaces rotated text. */
@@ -40,8 +23,8 @@ const letters = (s: string) => s.replace(/[^\p{L}]/gu, '').toUpperCase();
 function expectMandatory(text: string) {
   const flat = letters(text);
   expect(flat).toContain(letters(CERTIFICATE_TEXT.disclaimer));
-  expect(flat).toContain(letters('FOR AWARENESS PURPOSE ONLY')); // stamp (and watermark)
-  expect(flat).toContain(letters('NOT A LEGAL DOCUMENT')); // watermark
+  expect(flat).toContain(letters('FOR AWARENESS PURPOSE ONLY')); // stamp
+  expect(flat).toContain(letters('AWARENESS ONLY')); // watermark
 }
 
 async function jpeg(w: number, h: number, color: string): Promise<Buffer> {
@@ -66,7 +49,7 @@ async function portrait(): Promise<Buffer> {
 function boxCentre(key: ViolationKey): [number, number] {
   const entry = CERTIFICATE_CHECKLIST.find((c) => c.key === key)!;
   const row = CERTIFICATE_CHECKLIST.filter((c) => c.column === entry.column).indexOf(entry);
-  return [entry.column === 1 ? 488 : 783, 595 + 26 * row];
+  return [entry.column === 1 ? 488 : 783, 561 + 26 * row];
 }
 const isDark = (img: PNG, [x, y]: [number, number]) => pixel(img, x, y).every((v) => v < 80);
 
@@ -110,10 +93,9 @@ describe('the certificate PDF', () => {
       expect(letters(text), s).toContain(letters(s));
     }
     for (const s of [
-      'MIGHT DIE SOON',
-
+      'ONE MISTAKE AWAY',
       'RAVI KUMAR',
-      'WAS LAST SEEN ALIVE ON',
+      'WAS CAUGHT ON CAMERA ON',
       '30 OCTOBER 2026',
       '04:12 PM',
       'SAMPLE CHAURAHA, JAIPUR',
@@ -121,7 +103,8 @@ describe('the certificate PDF', () => {
       'RIDER WITHOUT HELMET',
       'CERTIFICATE NO. EKZ-JPR-000123',
       'ISSUED AT JAIPUR',
-      'THE NEXT FRAME WILL NOT BE A JOKE.',
+      'THIS COULD HAVE BEEN YOUR LAST RIDE.',
+      'ROAD SAFETY AWARENESS CAMPAIGN',
     ]) {
       expect(text, s).toContain(s);
     }
@@ -173,26 +156,33 @@ describe('stamp, watermark and disclaimer: in the PDF, on every render', () => {
     expect(pdf.length).toBeLessThan(MAX_BYTES);
   });
 
-  it('the stamp itself no longer carries the word HYPOTHETICAL (only the disclaimer sentence does)', async () => {
+  it('the disclaimer says what the design says, and nothing calls the certificate hypothetical', async () => {
     const text = pdfText(await createCertificatePdf(sample));
-    expect(text.match(/hypothetical/gi)).toHaveLength(1);
-    expect(text.toLowerCase()).toContain('hypothetical road safety awareness illustration');
+    expect(text).not.toMatch(/hypothetical/i);
+    expect(letters(text)).toContain(
+      letters(
+        'Awareness campaign illustration. Not a legal document, accident report or police notice.',
+      ),
+    );
+    expect(letters(text)).toContain(letters('No harm has occurred to the person named.'));
   });
 
-  it('are painted on the page: red stamp top right, watermark across the middle, disclaimer along the bottom', async () => {
+  it('are painted on the page: red stamp top right, watermark across the middle, disclaimer in a dark bar', async () => {
     const img = rasterize(await createCertificatePdf(sample));
     expect(redInk(img, 940, 40, 1075, 100)).toBeGreaterThan(150); // stamp
-    let faint = 0; // watermark: faint red-tinted pixels over the parchment, in the gap between photo and text
-    for (let y = 380; y < 480; y++)
-      for (let x = 400; x < 470; x++) {
+    let faint = 0; // watermark: faint red-tinted pixels over the parchment, upper right of the diagonal
+    for (let y = 200; y < 340; y++)
+      for (let x = 650; x < 1050; x++) {
         const [r, g, b] = pixel(img, x, y);
-        if (r - b > 28 && r > 235 && g < 240) faint++;
+        if (r - b > 28 && r > 230 && g < 240) faint++;
       }
-    let ink = 0;
+    expect(faint).toBeGreaterThan(500);
+    // The disclaimer sits in its own dark bar along the bottom, with light text in it.
+    expect(pixel(img, 70, 740).every((v) => v < 60)).toBe(true);
+    let light = 0;
     for (let x = 150; x < 980; x++)
-      for (let y = 747; y < 760; y++) if (pixel(img, x, y).every((v) => v < 170)) ink++;
-    expect(ink).toBeGreaterThan(300); // disclaimer text
-    expect(faint).toBeGreaterThan(0);
+      for (let y = 722; y < 760; y++) if (pixel(img, x, y).every((v) => v > 200)) light++;
+    expect(light).toBeGreaterThan(300);
   });
 });
 
@@ -238,32 +228,16 @@ describe('long text fits (auto-shrink)', () => {
       }),
     );
     // Nothing dark to the right of the name line, between its end and the border.
-    for (let y = 306; y < 356; y++)
+    for (let y = 272; y < 322; y++)
       for (let x = 1064; x < 1090; x++)
         expect(
           pixel(img, x, y).every((v) => v < 120),
           `name ink at ${x},${y}`,
         ).toBe(false);
     // No red place text in the gap above "while committing this traffic offence".
-    expect(redInk(img, 780, 536, 1062, 546)).toBe(0);
+    expect(redInk(img, 780, 502, 1062, 512)).toBe(0);
     // ... but the place is there, shrunk.
-    expect(redInk(img, 790, 420, 1062, 530)).toBeGreaterThan(400);
-  });
-
-  it('a short name and place keep the approved sizes (the date and place text match the reference exactly)', async () => {
-    const ours = rasterize(await createCertificatePdf({ ...sample, certCode: 'JTP-000123' }));
-    const ref = readPng('reference/certificate_v2.png');
-    const d = blockDifference(ours, ref, {
-      block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE, { x: 470, y: 400, w: 600, h: 120 }],
-    });
-    // 0.026: the ignored footer strip leaves fewer blocks to divide by; the number of differing blocks is unchanged.
-    expect(d.ratio).toBeLessThan(0.026);
-    const dateAndPlace = blockDifference(ours, ref, {
-      block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE],
-    });
-    expect(dateAndPlace.ratio).toBeLessThan(0.026);
+    expect(redInk(img, 790, 386, 1062, 496)).toBeGreaterThan(400);
   });
 });
 
@@ -338,7 +312,7 @@ describe('rendering is offline', () => {
         `<img src="http://127.0.0.1:${port}/x.png"><link rel="stylesheet" href="http://127.0.0.1:${port}/s.css"></body>`,
       );
       const pdf = await renderPdf(html);
-      expect(pdfText(pdf)).toContain('MIGHT DIE SOON');
+      expect(pdfText(pdf)).toContain('ONE MISTAKE AWAY');
       expect(hits).toBe(0);
     } finally {
       server.close();
@@ -353,59 +327,20 @@ describe('PNG export (Download image)', () => {
     const img = PNG.sync.read(png);
     expect([img.width, img.height]).toEqual([2246, 1588]);
     const half = await sharp(png).resize(1123, 794).png().toBuffer();
-    const d = blockDifference(PNG.sync.read(half), readPng('reference/certificate_v2.png'), {
-      block: 8,
-      ignore: [
-        FRAME_AREA,
-        PLACE_LABEL,
-        PARTNER_LINE,
-        { x: 100, y: 172, w: 940, h: 34 },
-        { x: 790, y: 708, w: 290, h: 34 },
-      ],
-    });
-    // A screenshot of the same page: it matches the approved PNG almost pixel for pixel.
-    expect(d.ratio).toBeLessThan(0.005);
+    const pdf = rasterize(await createCertificatePdf({ ...sample, certCode: 'JTP-000123' }));
+    // A screenshot of the same page: it matches the PDF raster (which is about 1 px taller) closely.
+    expect(blockDifference(PNG.sync.read(half), pdf, { block: 8 }).ratio).toBeLessThan(0.03);
   });
 });
 
-describe('visual regression against the approved design', () => {
-  const REF = readPng('reference/certificate_v2.png');
-  const REF_LOGO = readPng('reference/certificate_v2_logo.png');
-  const approved: CertificateData = { ...sample, certCode: 'JTP-000123' };
-
-  it('without police branding: matches reference/certificate_v2.png (only the police wording differs)', async () => {
-    const ours = rasterize(await createCertificatePdf(approved));
-    expect([ours.width, ours.height]).toEqual([1123, 795]); // the PDF page is 0.5 px taller than the PNG
-    const d = blockDifference(ours, REF, {
-      block: 8,
-      ignore: [
-        FRAME_AREA,
-        PLACE_LABEL,
-        PARTNER_LINE,
-        { x: 100, y: 172, w: 940, h: 34 }, // subtitle: "Issued by Jaipur Traffic Police" -> campaign wording
-        { x: 790, y: 708, w: 290, h: 34 }, // signature line
-      ],
-    });
-    process.stderr.write(`v2: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
-    expect(d.ratio).toBeLessThan(0.025); // the PDF raster is about 1 px off the screenshot-based PNG;
-  });
-
-  it('with police branding and logo: matches reference/certificate_v2_logo.png outside the frame and logo', async () => {
-    const ours = rasterize(await createCertificatePdf(approved, POLICE));
-    const d = blockDifference(ours, REF_LOGO, {
-      block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, LOGO_AREA, PARTNER_LINE],
-    });
-    process.stderr.write(`v2 + logo: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
-    expect(d.ratio).toBeLessThan(0.025);
-  });
-
+describe('visual regression against golden images', () => {
   it('would notice a broken layout (the comparison is not vacuous)', async () => {
-    const html = buildCertificateHtml(approved)
+    const golden = PNG.sync.read(readFileSync('tests/pdf/snapshots/short-name-no-photo.png'));
+    const html = buildCertificateHtml(sample)
       .replace('class="c-art"', 'class="c-art" visibility="hidden" display="none"')
       .replace('background:#faf3e0', 'background:#ffffff');
     const broken = rasterize(await renderPdf(html));
-    expect(blockDifference(broken, REF, { block: 32 }).ratio).toBeGreaterThan(0.1);
+    expect(blockDifference(broken, golden, { block: 32 }).ratio).toBeGreaterThan(0.1);
   });
 
   // Golden images of the fixtures. Created with UPDATE_SNAPSHOTS=1 and committed; compared on every run.
