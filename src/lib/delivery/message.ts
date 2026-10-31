@@ -31,7 +31,9 @@ export function buildMessage(m: MessageInput): string {
     v.lineHi,
     v.lineEn,
     '',
-    m.link ? 'यह लिंक 24 घंटे तक चलेगा। / The link works for 24 hours.' : null,
+    m.link
+      ? 'लिंक खोलकर PDF फ़ोन में सेव करें (24 घंटे)। / Open the link and save the PDF (24 hours).'
+      : null,
     `कोड / Code: ${m.certCode}`,
     'संदेश बंद करने के लिए *STOP* लिखें। / To stop messages, reply *STOP*.',
   ]

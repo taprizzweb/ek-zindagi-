@@ -11,7 +11,7 @@ export type LocationValue =
 
 type GpsState =
   | { status: 'locating' }
-  | { status: 'ok'; lat: number; lng: number; geocoded: boolean }
+  | { status: 'ok'; lat: number; lng: number; geocoded: boolean; accuracy: number }
   | { status: 'failed' };
 
 export default function LocationField({
@@ -48,7 +48,13 @@ export default function LocationField({
         /* the officer types the place instead */
       }
       if (cancelled) return;
-      setGps({ status: 'ok', lat, lng, geocoded: name !== null });
+      setGps({
+        status: 'ok',
+        lat,
+        lng,
+        geocoded: name !== null,
+        accuracy: Math.round(pos.accuracy),
+      });
       if (name) setPlace(name);
     })();
     return () => {
@@ -75,12 +81,19 @@ export default function LocationField({
       <p className="text-base font-semibold">जगह / Location</p>
       {gps.status === 'locating' ? (
         <p role="status" className="text-muted">
-          लोकेशन ली जा रही है… / Getting location…
+          लोकेशन ली जा रही है (कुछ सेकंड)… / Getting an accurate location (a few seconds)…
         </p>
       ) : null}
       {gps.status === 'ok' ? (
         <p role="status" className="font-semibold text-accent-dark">
           ✓ लोकेशन मिल गई / Location confirmed
+        </p>
+      ) : null}
+      {gps.status === 'ok' && gps.accuracy > 100 ? (
+        <p role="alert" className="font-semibold text-danger">
+          लोकेशन लगभग {gps.accuracy} मीटर तक गलत हो सकती है। जगह का नाम जाँचें या बाहर खुले में जाकर
+          “फिर से लोकेशन लें” दबाएँ। / The location may be off by about {gps.accuracy} m. Check the
+          place name, or step outside and tap “Try GPS again”.
         </p>
       ) : null}
       {gps.status === 'failed' ? (

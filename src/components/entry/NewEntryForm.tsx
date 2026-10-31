@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import CertificatePreview from '@/components/certificate/CertificatePreview';
 import { formatDateParts, type CertificateView } from '@/components/certificate/certificate-data';
 import { Button, ErrorBox, Label, TextField } from '@/components/ui';
@@ -95,6 +95,11 @@ export default function NewEntryForm({
   const [serverError, setServerError] = useState<Bilingual | null>(null);
   const [progress, setProgress] = useState<'saving' | 'creating'>('saving');
   const [created, setCreated] = useState<Created | null>(null);
+  const canShareFile = useSyncExternalStore(
+    () => () => undefined,
+    () => typeof navigator.share === 'function',
+    () => false,
+  );
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'opened' | 'sent'>('idle');
   const [sendError, setSendError] = useState<Bilingual | null>(null);
   const [waUrl, setWaUrl] = useState<string | null>(null);
@@ -245,6 +250,31 @@ export default function NewEntryForm({
     setStage('edit'); // fields stay locked (the entry exists); the button now says "Try again"
   }
 
+  // Start the certificate renderer while the officer fills the form, so "Generate" does not wait for it.
+  useEffect(() => {
+    void fetch('/api/warmup', { method: 'POST' }).catch(() => undefined);
+  }, []);
+
+  async function sharePdf() {
+    if (!created) return;
+    setSendError(null);
+    try {
+      const res = await fetch(`/api/entries/${created.id}/certificate/pdf`);
+      if (!res.ok) throw new Error('pdf');
+      const file = new File([await res.blob()], `EK-ZINDAGI-${created.certCode}.pdf`, {
+        type: 'application/pdf',
+      });
+      if (!navigator.canShare?.({ files: [file] })) throw new Error('nofile');
+      await navigator.share({ files: [file], title: 'EK ZINDAGI', text: created.certCode });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return; // the officer closed the share sheet
+      setSendError({
+        hi: 'फ़ाइल शेयर नहीं हो सकी। ऊपर से PDF डाउनलोड करें।',
+        en: 'The file could not be shared. Download the PDF instead.',
+      });
+    }
+  }
+
   async function sendOnWhatsApp() {
     if (!created) return;
     setSendState('sending');
@@ -323,25 +353,6 @@ export default function NewEntryForm({
         <p className="mt-1 text-muted">
           कोड / Code: <strong className="text-ink">{created?.certCode}</strong>
         </p>
-      </div>
-
-      <CertificatePreview view={view} label={previewLabel} />
-
-      <div className="flex flex-wrap gap-3">
-        <a
-          href={`/api/entries/${created?.id}/certificate/pdf`}
-          download
-          className="inline-flex min-h-12 items-center rounded border-2 border-line bg-white px-4 text-base font-semibold text-ink hover:bg-gray-100"
-        >
-          PDF डाउनलोड / Download PDF
-        </a>
-        <a
-          href={`/api/entries/${created?.id}/certificate/image`}
-          download
-          className="inline-flex min-h-12 items-center rounded border-2 border-line bg-white px-4 text-base font-semibold text-ink hover:bg-gray-100"
-        >
-          इमेज डाउनलोड / Download image
-        </a>
       </div>
 
       <section
@@ -435,12 +446,36 @@ export default function NewEntryForm({
             नंबर गलत है? / Wrong number?
           </Button>
         </div>
+        {deliveryMode === 'bridge' && canShareFile ? (
+          <Button type="button" variant="secondary" onClick={() => void sharePdf()}>
+            PDF फ़ाइल शेयर करें / Share the PDF file
+          </Button>
+        ) : null}
         <p className="text-sm text-muted">
           {deliveryMode === 'bridge'
-            ? 'wa.me से फ़ाइल नहीं जोड़ी जा सकती, इसलिए संदेश में 24 घंटे चलने वाला लिंक जाता है। / wa.me cannot attach a file, so the message carries a link that works for 24 hours.'
+            ? 'wa.me से फ़ाइल नहीं जोड़ी जा सकती, इसलिए संदेश में लिंक जाता है। PDF सीधे चैट में भेजने के लिए “PDF फ़ाइल शेयर करें” दबाएँ। / wa.me cannot attach a file, so the message carries a link. To put the PDF itself in a chat, tap “Share the PDF file”.'
             : 'आधिकारिक व्हाट्सऐप API से भेजा जाएगा। / It will be sent through the official WhatsApp API.'}
         </p>
       </section>
+
+      <CertificatePreview view={view} label={previewLabel} />
+
+      <div className="flex flex-wrap gap-3">
+        <a
+          href={`/api/entries/${created?.id}/certificate/pdf`}
+          download
+          className="inline-flex min-h-12 items-center rounded border-2 border-line bg-white px-4 text-base font-semibold text-ink hover:bg-gray-100"
+        >
+          PDF डाउनलोड / Download PDF
+        </a>
+        <a
+          href={`/api/entries/${created?.id}/certificate/image`}
+          download
+          className="inline-flex min-h-12 items-center rounded border-2 border-line bg-white px-4 text-base font-semibold text-ink hover:bg-gray-100"
+        >
+          इमेज डाउनलोड / Download image
+        </a>
+      </div>
 
       <Button type="button" variant="secondary" onClick={reset} className="w-full sm:w-auto">
         नई प्रविष्टि / New entry

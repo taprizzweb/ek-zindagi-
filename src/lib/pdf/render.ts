@@ -47,12 +47,43 @@ async function launch(): Promise<Browser> {
 /** A4 landscape: the certificate canvas (1123 x 794 px) is 297 x 210 mm at 96 dpi. */
 const CANVAS = { width: 1123, height: 794 } as const;
 
+/**
+ * One Chromium is kept for the life of the server instance: starting it is the slow part (several seconds on a
+ * cold function), a page inside a running one takes about a second. If it died, the next render starts a new one.
+ */
+let shared: Promise<Browser> | null = null;
+async function getBrowser(): Promise<Browser> {
+  if (shared) {
+    const existing = await shared.catch(() => null);
+    if (existing?.connected) return existing;
+    shared = null;
+  }
+  const started = launch();
+  shared = started;
+  started.catch(() => {
+    if (shared === started) shared = null;
+  });
+  return started;
+}
+
+/** Shuts the shared Chromium (tests, or after a failure); the next render starts a fresh one. */
+export async function closeBrowser(): Promise<void> {
+  const old = shared;
+  shared = null;
+  await old?.then((b) => b.close()).catch(() => undefined);
+}
+
+/** Starts Chromium ahead of the first certificate (the form calls this while the officer is typing). */
+export async function warmUp(): Promise<void> {
+  await getBrowser();
+}
+
 async function withPage<T>(html: string, run: (page: Page) => Promise<T>): Promise<T> {
   await acquire();
-  let browser: Browser | null = null;
+  let page: Page | null = null;
   try {
-    browser = await launch();
-    const page = await browser.newPage();
+    const browser = await getBrowser();
+    page = await browser.newPage();
     page.setDefaultTimeout(RENDER_TIMEOUT_MS);
     await page.setViewport({ ...CANVAS, deviceScaleFactor: 1 });
     await page.setRequestInterception(true);
@@ -69,9 +100,10 @@ async function withPage<T>(html: string, run: (page: Page) => Promise<T>): Promi
     // Only the technical reason is logged (no entry data), so a deploy problem is visible in the host logs.
     const reason = (err instanceof Error ? err.message : String(err)).slice(0, 300);
     console.error('pdf render failed:', reason);
+    void closeBrowser(); // do not trust this browser for the next render
     throw new AppError('pdf_failed', 502, reason);
   } finally {
-    await browser?.close().catch(() => undefined);
+    await page?.close().catch(() => undefined);
     release();
   }
 }
