@@ -3,6 +3,7 @@
  * so the browser tests can run without a Supabase project. It keeps everything in memory and
  * exposes what the app stored so tests can assert on it. It is not used by the application.
  */
+import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 export const OFFICER = {
@@ -28,6 +29,23 @@ export const ADMIN = {
   displayName: 'Test Admin',
   officerCode: null as string | null,
 };
+
+/** Officers have no password: this is the team link of the test officer's station (22 URL-safe characters). */
+export const OFFICER_LINK_TOKEN = 'OfficerLinkTokenAbc123';
+
+/** Gives the test officer a team link (idempotent). Call it before opening `/go/<OFFICER_LINK_TOKEN>`. */
+export function giveOfficerLink(state: { accessLinks: Row[] }): void {
+  if (state.accessLinks.some((r) => r.profile_id === OFFICER.id)) return;
+  const now = new Date().toISOString();
+  state.accessLinks.push({
+    profile_id: OFFICER.id,
+    token_hash: createHash('sha256').update(OFFICER_LINK_TOKEN).digest('hex'),
+    // Fixed, so a cookie from before a reset() is still valid once the link is given again.
+    rotated_at: '2026-01-01T00:00:00.000Z',
+    created_at: now,
+    last_used_at: null,
+  });
+}
 
 const USERS = [OFFICER, SUPERVISOR, ADMIN];
 

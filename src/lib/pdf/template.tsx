@@ -45,6 +45,11 @@ export interface Branding {
   ngoLogoDataUri?: string | null;
   policeLogoDataUri?: string | null;
   partnerCreditText?: string | null;
+  /** 'a' (default) or 'b'; see CERTIFICATE_DESIGN. */
+  design?: 'a' | 'b';
+  /** Design B only. */
+  taprizzLogoDataUri?: string | null;
+  arthjamLogoDataUri?: string | null;
 }
 
 export const NO_BRANDING: Branding = { showPolice: false };
@@ -66,6 +71,9 @@ export function toCertificateView(
     policeLogoSrc: branding.showPolice ? (branding.policeLogoDataUri ?? null) : null,
     ngoLogoSrc: branding.ngoLogoDataUri ?? null,
     partnerCredit: branding.partnerCreditText ?? null,
+    design: branding.design === 'b' ? 'b' : 'a',
+    taprizzLogoSrc: branding.design === 'b' ? (branding.taprizzLogoDataUri ?? null) : null,
+    arthjamLogoSrc: branding.design === 'b' ? (branding.arthjamLogoDataUri ?? null) : null,
   };
 }
 

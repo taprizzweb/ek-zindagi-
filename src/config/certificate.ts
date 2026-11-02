@@ -5,7 +5,40 @@
  */
 import type { ViolationKey } from './violations';
 
+/** Printed in the footer of every certificate (both designs) unless PARTNER_CREDIT_TEXT replaces it. */
+export const PARTNER_LINE = 'Project EK ZINDAGI by Taprizz × Arthjam';
+
+/** Design A (the default): garland, incense and the police wording when police branding is on. */
 export const CERTIFICATE_TEXT = {
+  headline: 'MIGHT DIE SOON',
+  subtitleBase: 'Certificate of recklessness on road',
+  /** Used when police branding is on. */
+  subtitlePolice: 'Issued by Jaipur Traffic Police',
+  /** Used when it is off. */
+  subtitleCampaign: 'Project EK ZINDAGI · Jaipur',
+  certifies: 'This certifies that',
+  lastSeenPrefix: 'was last seen',
+  alive: 'alive',
+  lastSeenSuffix: 'on',
+  dateLabel: 'Date & time',
+  placeLabel: 'At',
+  committing: 'while committing this traffic offence:',
+  issuedAt: 'Issued at Jaipur',
+  centreLine: 'The next frame will not be a joke.',
+  /** Signature line: police wording only when police branding is on. */
+  signaturePolice: 'Traffic Inspector, Jaipur Traffic Police',
+  signatureCampaign: 'Project EK ZINDAGI · Awareness camp',
+  stamp: ['FOR AWARENESS', 'PURPOSE ONLY'],
+  watermark: ['FOR AWARENESS PURPOSE ONLY', 'NOT A LEGAL DOCUMENT'],
+  disclaimer:
+    'Hypothetical road safety awareness illustration. Not a death certificate, accident report or legal document. No harm has occurred to the person named.',
+  technologyPartner: 'Technology Partner',
+  /** Printed in the footer of every certificate unless PARTNER_CREDIT_TEXT replaces it. */
+  partnerLine: PARTNER_LINE,
+} as const;
+
+/** Design B: cracked glass, no police wording; the logos sit in the top corners. */
+export const CERTIFICATE_TEXT_B = {
   headline: 'ONE MISTAKE AWAY',
   subtitleBase: 'Certificate of recklessness on road',
   certifies: 'This certifies that',
@@ -22,7 +55,7 @@ export const CERTIFICATE_TEXT = {
     'Awareness campaign illustration. Not a legal document, accident report or police notice. No harm has occurred to the person named.',
   technologyPartner: 'Technology Partner',
   /** Printed in the footer of every certificate unless PARTNER_CREDIT_TEXT replaces it. */
-  partnerLine: 'Project EK ZINDAGI by Taprizz × Chitrakatha (homestay)',
+  partnerLine: PARTNER_LINE,
 } as const;
 
 /** Labels and column layout of the checklist printed on the certificate. */

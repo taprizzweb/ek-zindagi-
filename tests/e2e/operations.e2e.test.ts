@@ -3,7 +3,14 @@ import { expect } from '@playwright/test';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, it } from 'vitest';
 import { APP_PORT, APP_URL, FAKE_SUPABASE_PORT, appEnv } from './env';
-import { ADMIN, OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
+import {
+  ADMIN,
+  OFFICER,
+  OFFICER_LINK_TOKEN,
+  SUPERVISOR,
+  giveOfficerLink,
+  startFakeSupabase,
+} from './fake-supabase';
 
 /**
  * Supervisor and admin screens, the kill switch and the retention job, in a real browser against the
@@ -60,10 +67,18 @@ async function signIn(who: Who, home: string): Promise<Page> {
   });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto(`${APP_URL}/login`);
-  await page.fill('#email', who.email);
-  await page.fill('#password', who.password);
-  await page.getByRole('button', { name: /Log in/ }).click();
+  if (who === OFFICER) {
+    // Officers have no password: the station link signs them in, then they go where the test wants.
+    giveOfficerLink(fake.state);
+    await page.goto(`${APP_URL}/go/${OFFICER_LINK_TOKEN}`);
+    await page.waitForURL('**/new');
+    if (home !== '/new') await page.goto(`${APP_URL}${home}`);
+  } else {
+    await page.goto(`${APP_URL}/login`);
+    await page.fill('#email', who.email);
+    await page.fill('#password', who.password);
+    await page.getByRole('button', { name: /Log in/ }).click();
+  }
   await page.waitForURL(`**${home}`);
   return page;
 }

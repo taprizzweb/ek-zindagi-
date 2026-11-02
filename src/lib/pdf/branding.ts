@@ -11,6 +11,9 @@ const MIME: Record<string, string> = {
 const MAX_LOGO_BYTES = 300_000;
 /** Used for the police logo when branding is on and POLICE_LOGO_PATH is not set. */
 export const DEFAULT_POLICE_LOGO_PATH = 'assets/branding/jaipur-police.png';
+/** Design B partner logos: used when the files exist, left out when they do not. */
+export const DEFAULT_TAPRIZZ_LOGO_PATH = 'assets/branding/taprizz.png';
+export const DEFAULT_ARTHJAM_LOGO_PATH = 'assets/branding/arthjam.png';
 
 /** File access, injectable so tests can prove which files are (not) opened. */
 export interface FileAccess {
@@ -39,6 +42,10 @@ export interface BrandingEnv {
   NGO_LOGO_PATH?: string;
   POLICE_LOGO_PATH?: string;
   PARTNER_CREDIT_TEXT?: string;
+  /** 'b' selects the cracked-glass design; anything else (or nothing) is design A. */
+  CERTIFICATE_DESIGN?: string;
+  TAPRIZZ_LOGO_PATH?: string;
+  ARTHJAM_LOGO_PATH?: string;
 }
 
 /**
@@ -52,7 +59,13 @@ export function brandingFromEnv(
 ): Branding {
   const showPolice = env.SHOW_POLICE_BRANDING === 'true';
   const credit = env.PARTNER_CREDIT_TEXT?.trim();
+  const design = env.CERTIFICATE_DESIGN?.trim().toLowerCase() === 'b' ? 'b' : 'a';
   return {
+    design,
+    taprizzLogoDataUri:
+      design === 'b' ? loadLogo(env.TAPRIZZ_LOGO_PATH || DEFAULT_TAPRIZZ_LOGO_PATH, files) : null,
+    arthjamLogoDataUri:
+      design === 'b' ? loadLogo(env.ARTHJAM_LOGO_PATH || DEFAULT_ARTHJAM_LOGO_PATH, files) : null,
     showPolice,
     ngoLogoDataUri: loadLogo(env.NGO_LOGO_PATH, files),
     policeLogoDataUri: showPolice

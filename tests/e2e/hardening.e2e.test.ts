@@ -3,7 +3,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { APP_PORT, APP_URL, FAKE_SUPABASE_PORT, appEnv } from './env';
-import { OFFICER, startFakeSupabase } from './fake-supabase';
+import {
+  OFFICER,
+  OFFICER_LINK_TOKEN,
+  SUPERVISOR,
+  giveOfficerLink,
+  startFakeSupabase,
+} from './fake-supabase';
 
 /**
  * Security checks on the production build: headers, cookies, every API route refusing strangers,
@@ -99,7 +105,7 @@ describe('session cookies', () => {
     const ok = await fetch(`${APP_URL}/api/auth/login`, {
       method: 'POST',
       headers: { ...origin, 'content-type': 'application/json' },
-      body: JSON.stringify({ email: OFFICER.email, password: OFFICER.password }),
+      body: JSON.stringify({ email: SUPERVISOR.email, password: SUPERVISOR.password }),
     });
     expect(ok.status).toBe(200);
     const cookies = ok.headers.getSetCookie();
@@ -175,7 +181,6 @@ describe('every API route refuses a stranger', () => {
       '/officer',
       '/supervisor',
       '/admin',
-      '/admin/officers',
       '/admin/teams',
       '/admin/settings',
       '/admin/audit',
@@ -230,11 +235,8 @@ describe('server logs', () => {
     const NAME = 'Zzyzx Qwerty';
     const PHONE = '9812345678';
     const PLACE = 'Quasimodo Chowk';
-    const login = await fetch(`${APP_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { ...origin, 'content-type': 'application/json' },
-      body: JSON.stringify({ email: OFFICER.email, password: OFFICER.password }),
-    });
+    giveOfficerLink(fake.state); // officers have no password: the station link signs them in
+    const login = await fetch(`${APP_URL}/go/${OFFICER_LINK_TOKEN}`, { redirect: 'manual' });
     const cookie = login.headers
       .getSetCookie()
       .map((c) => c.split(';')[0])
@@ -302,6 +304,7 @@ describe('server logs', () => {
       PLACE,
       'wrong-password-xyz',
       OFFICER.password,
+      OFFICER_LINK_TOKEN,
       token!,
       appEnv.SUPABASE_SERVICE_ROLE_KEY,
       appEnv.PHONE_HASH_SECRET,

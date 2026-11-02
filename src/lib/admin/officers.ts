@@ -1,5 +1,4 @@
 import type { AuditSink } from '@/lib/audit/audit';
-import { generateTempPassword } from '@/lib/domain/password';
 import type { CreatableRole, Role } from '@/lib/domain/roles';
 import { AppError } from '@/lib/errors';
 
@@ -55,36 +54,6 @@ async function loadManageable(deps: Deps, actor: Actor, targetId: string): Promi
   return target;
 }
 
-export async function createOfficer(
-  deps: Deps,
-  actor: Actor,
-  input: { email: string; displayName: string; role: CreatableRole },
-): Promise<{ id: string; officerCode: string; tempPassword: string }> {
-  requireAdmin(actor);
-  const tempPassword = (deps.generatePassword ?? generateTempPassword)();
-  const { id } = await deps.store.createAuthUser(input.email, tempPassword);
-  let officerCode: string;
-  try {
-    ({ officerCode } = await deps.store.insertProfile({
-      id,
-      email: input.email,
-      displayName: input.displayName,
-      role: input.role,
-      createdBy: actor.id,
-    }));
-  } catch (err) {
-    await deps.store.deleteAuthUser(id).catch(() => undefined); // do not leave a login without a profile
-    throw err;
-  }
-  await deps.audit.record({
-    action: 'officer_created',
-    actorId: actor.id,
-    actorCode: actor.officerCode,
-    meta: { target_code: officerCode, role: input.role },
-  });
-  return { id, officerCode, tempPassword };
-}
-
 export async function setOfficerActive(
   deps: Deps,
   actor: Actor,
@@ -108,24 +77,4 @@ export async function setOfficerActive(
     actorCode: actor.officerCode,
     meta: { target_code: target.officerCode },
   });
-}
-
-export async function resetOfficerPassword(
-  deps: Deps,
-  actor: Actor,
-  targetId: string,
-): Promise<{ tempPassword: string }> {
-  requireAdmin(actor);
-  const target = await loadManageable(deps, actor, targetId);
-  const tempPassword = (deps.generatePassword ?? generateTempPassword)();
-  await deps.store.setMustChangePassword(targetId, true); // before the password, never after
-  await deps.store.setPassword(targetId, tempPassword);
-  await deps.store.revokeSessions(targetId);
-  await deps.audit.record({
-    action: 'officer_password_reset',
-    actorId: actor.id,
-    actorCode: actor.officerCode,
-    meta: { target_code: target.officerCode },
-  });
-  return { tempPassword };
 }

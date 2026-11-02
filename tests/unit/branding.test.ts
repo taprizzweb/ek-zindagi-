@@ -25,7 +25,39 @@ describe('brandingFromEnv', () => {
       ngoLogoDataUri: null,
       policeLogoDataUri: null,
       partnerCreditText: null,
+      design: 'a',
+      taprizzLogoDataUri: null,
+      arthjamLogoDataUri: null,
     });
+  });
+
+  it('design B only with the exact letter "b"; its partner logos load only for B and only if the files exist', () => {
+    for (const v of [undefined, '', 'a', 'A', 'bb', 'c', 'true'])
+      expect(brandingFromEnv({ CERTIFICATE_DESIGN: v }).design, String(v)).toBe('a');
+    expect(brandingFromEnv({ CERTIFICATE_DESIGN: 'b' }).design).toBe('b');
+    expect(brandingFromEnv({ CERTIFICATE_DESIGN: ' B ' }).design).toBe('b');
+    const read: string[] = [];
+    const files = {
+      size: () => 10,
+      read: (p: string) => {
+        read.push(p);
+        return Buffer.from('x');
+      },
+    };
+    expect(brandingFromEnv({}, files).taprizzLogoDataUri).toBeNull(); // design A: never opened
+    expect(read.filter((p) => /taprizz|arthjam/.test(p))).toEqual([]);
+    const b = brandingFromEnv({ CERTIFICATE_DESIGN: 'b' }, files);
+    expect(b.taprizzLogoDataUri).toMatch(/^data:image\/png;base64,/);
+    expect(b.arthjamLogoDataUri).toMatch(/^data:image\/png;base64,/);
+    const missing = {
+      size: () => {
+        throw new Error('ENOENT');
+      },
+      read: () => Buffer.alloc(0),
+    };
+    const none = brandingFromEnv({ CERTIFICATE_DESIGN: 'b' }, missing);
+    expect(none.taprizzLogoDataUri).toBeNull(); // no file yet: just left out
+    expect(none.arthjamLogoDataUri).toBeNull();
   });
 
   it('only the exact value "true" switches police branding on', () => {

@@ -3,7 +3,13 @@ import { createHmac } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { startFakeWhatsApp, type FakeWhatsApp, metaError } from '../integration/fake-whatsapp';
 import { FAKE_SUPABASE_PORT, appEnv } from './env';
-import { OFFICER, SUPERVISOR, startFakeSupabase } from './fake-supabase';
+import {
+  OFFICER,
+  OFFICER_LINK_TOKEN,
+  SUPERVISOR,
+  giveOfficerLink,
+  startFakeSupabase,
+} from './fake-supabase';
 
 /**
  * The real app in cloud_api mode (production build), talking to the fake Supabase and the fake
@@ -37,12 +43,17 @@ async function waitForApp() {
 async function login(
   who: { id: string; email: string; password: string } = OFFICER,
 ): Promise<string> {
-  const res = await fetch(`${URL_}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin: URL_ },
-    body: JSON.stringify({ email: who.email, password: who.password }),
-  });
-  expect([res.status, await res.clone().text()]).toEqual([200, expect.any(String)]);
+  const res =
+    who.id === OFFICER.id
+      ? // Officers have no password: the station link sets the cookie.
+        (giveOfficerLink(fake.state),
+        await fetch(`${URL_}/go/${OFFICER_LINK_TOKEN}`, { redirect: 'manual' }))
+      : await fetch(`${URL_}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', origin: URL_ },
+          body: JSON.stringify({ email: who.email, password: who.password }),
+        });
+  expect([res.status < 400, await res.clone().text()]).toEqual([true, expect.any(String)]);
   return res.headers
     .getSetCookie()
     .map((c) => c.split(';')[0])
@@ -162,6 +173,7 @@ afterAll(async () => {
 
 afterEach(() => {
   fake.reset();
+  giveOfficerLink(fake.state); // the officer's cookie (made in beforeAll) stays valid
   wa.reset();
 });
 

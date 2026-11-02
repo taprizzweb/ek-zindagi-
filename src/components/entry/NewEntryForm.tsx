@@ -25,6 +25,9 @@ export interface ClientBranding {
   policeLogoSrc: string | null;
   ngoLogoSrc: string | null;
   partnerCredit: string | null;
+  design: 'a' | 'b';
+  taprizzLogoSrc: string | null;
+  arthjamLogoSrc: string | null;
 }
 
 const FIELD_ERRORS: Record<FieldKey, Bilingual> = {
@@ -156,6 +159,9 @@ export default function NewEntryForm({
       policeLogoSrc: branding.showPolice ? branding.policeLogoSrc : null,
       ngoLogoSrc: branding.ngoLogoSrc,
       partnerCredit: branding.partnerCredit,
+      design: branding.design,
+      taprizzLogoSrc: branding.design === 'b' ? branding.taprizzLogoSrc : null,
+      arthjamLogoSrc: branding.design === 'b' ? branding.arthjamLogoSrc : null,
     };
   }, [name, location, violation, photo, created, now, branding]);
 

@@ -53,28 +53,24 @@
   width: auto;
   max-width: 130px;
 }
-/* On top of everything (it also crosses the photo) but light enough that the text underneath stays readable. */
 .cert .c-logo-ngo.beside {
   left: 156px;
   top: 56px;
   height: 80px;
   max-width: 90px;
 }
-/* On top of everything (it also crosses the photo) but light enough that the text underneath stays readable. */
 .cert .wm {
   position: absolute;
   left: 0;
-  top: 322px;
+  top: 330px;
   width: 1123px;
   text-align: center;
-  transform: rotate(-25deg);
+  transform: rotate(-12deg);
   font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
-  font-size: 150px;
-  font-weight: 400;
-  letter-spacing: 10px;
-  line-height: 1;
-  text-transform: uppercase;
-  color: rgba(176, 24, 24, 0.17);
+  font-size: 44px;
+  letter-spacing: 6px;
+  line-height: 1.4;
+  color: rgba(125, 16, 16, 0.055);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -107,7 +103,7 @@
 .cert .c-art {
   position: absolute;
   left: 62px;
-  top: 228px;
+  top: 262px;
   width: 400px;
   height: 385px;
   display: block;
@@ -115,7 +111,7 @@
 .cert .certifies {
   position: absolute;
   left: 478px;
-  top: 245px;
+  top: 279px;
   font-size: 13px;
   letter-spacing: 3.4px;
   color: #7d1010;
@@ -124,7 +120,7 @@
 .cert .c-name {
   position: absolute;
   left: 478px;
-  top: 270px;
+  top: 304px;
   width: 582px;
   height: 54px;
   border-bottom: 2px solid #1a1209;
@@ -137,7 +133,7 @@
 .cert .last {
   position: absolute;
   left: 478px;
-  top: 336px;
+  top: 370px;
   font-size: 20px;
 }
 .cert .last b {
@@ -152,13 +148,13 @@
 .cert .c-datebox {
   position: absolute;
   left: 478px;
-  top: 370px;
+  top: 404px;
   width: 290px;
 }
 .cert .c-locbox {
   position: absolute;
   left: 792px;
-  top: 370px;
+  top: 404px;
   width: 268px;
 }
 .cert .big {
@@ -174,13 +170,13 @@
 .cert .committing {
   position: absolute;
   left: 478px;
-  top: 514px;
+  top: 548px;
   font-size: 20px;
 }
 .cert .c-viol {
   position: absolute;
   left: 478px;
-  top: 548px;
+  top: 582px;
   width: 582px;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -210,14 +206,14 @@
   position: absolute;
   left: 62px;
   right: 63px;
-  top: 659px;
+  top: 693px;
   height: 2px;
   background: #1a1209;
 }
 .cert .bl {
   position: absolute;
   left: 62px;
-  top: 669px;
+  top: 703px;
   font-size: 12.5px;
   line-height: 18px;
 }
@@ -225,7 +221,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 681px;
+  top: 715px;
   text-align: center;
   font-style: italic;
   font-size: 15px;
@@ -235,7 +231,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 699px;
+  top: 733px;
   text-align: center;
   font-size: 13px;
   font-weight: 700;
@@ -245,29 +241,22 @@
 .cert .br {
   position: absolute;
   right: 63px;
-  top: 682px;
+  top: 716px;
   width: 260px;
   text-align: right;
   font-size: 12.5px;
   border-top: 1px solid #9a8f80;
   padding-top: 3px;
 }
-/* Its own bar at the bottom: dark, light text, large. */
 .cert .disc {
   position: absolute;
-  left: 62px;
-  right: 62px;
-  top: 718px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
+  left: 0;
+  width: 1123px;
+  top: 752px;
   text-align: center;
-  font-size: 17px;
-  line-height: 20px;
-  background: #1a1209;
-  color: #faf3e0;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: #6b5a48;
 }
 .cert .stamp {
   position: absolute;
@@ -284,4 +273,295 @@
   text-align: center;
   background: rgba(250, 243, 224, 0.9);
   font-weight: 400;
+}
+
+/* ---- Design B (class cert-b): cracked glass ---- */
+.cert.cert-b .bd1 {
+  position: absolute;
+  left: 22px;
+  top: 22px;
+  right: 22px;
+  bottom: 22px;
+  border: 1.5px solid #7d1010;
+}
+.cert.cert-b .bd2 {
+  position: absolute;
+  left: 28px;
+  top: 28px;
+  right: 28px;
+  bottom: 28px;
+  border: 1.5px solid #7d1010;
+}
+.cert.cert-b .c-logo {
+  position: absolute;
+  object-fit: contain;
+}
+.cert.cert-b .c-logo-police {
+  left: 48px;
+  top: 44px;
+  height: 112px;
+  width: auto;
+  max-width: 130px;
+}
+.cert.cert-b .c-logo-ngo {
+  left: 48px;
+  top: 44px;
+  height: 90px;
+  width: auto;
+  max-width: 130px;
+}
+.cert.cert-b .c-logo-ngo.beside {
+  left: 156px;
+  top: 56px;
+  height: 80px;
+  max-width: 90px;
+}
+.cert.cert-b .wm {
+  position: absolute;
+  left: 0;
+  top: 322px;
+  width: 1123px;
+  text-align: center;
+  transform: rotate(-25deg);
+  font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
+  font-size: 150px;
+  font-weight: 400;
+  letter-spacing: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(176, 24, 24, 0.17);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.cert.cert-b .c-head {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  top: 40px;
+  text-align: center;
+  font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
+  font-size: 95px;
+  line-height: 1;
+  letter-spacing: 4px;
+  color: #1a1209;
+  white-space: nowrap;
+}
+.cert.cert-b .c-sub {
+  position: absolute;
+  left: 0;
+  width: 1123px;
+  top: 180px;
+  text-align: center;
+  font-size: 14.5px;
+  letter-spacing: 4.2px;
+  color: #7d1010;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cert.cert-b .c-art {
+  position: absolute;
+  left: 62px;
+  top: 228px;
+  width: 400px;
+  height: 385px;
+  display: block;
+}
+.cert.cert-b .certifies {
+  position: absolute;
+  left: 478px;
+  top: 245px;
+  font-size: 13px;
+  letter-spacing: 3.4px;
+  color: #7d1010;
+  text-transform: uppercase;
+}
+.cert.cert-b .c-name {
+  position: absolute;
+  left: 478px;
+  top: 270px;
+  width: 582px;
+  height: 54px;
+  border-bottom: 2px solid #1a1209;
+  font-style: italic;
+  font-size: 46px;
+  line-height: 54px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cert.cert-b .last {
+  position: absolute;
+  left: 478px;
+  top: 336px;
+  font-size: 20px;
+}
+.cert.cert-b .last b {
+  font-weight: 700;
+}
+.cert.cert-b .lbl {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #5a4a3a;
+  text-transform: uppercase;
+}
+.cert.cert-b .c-datebox {
+  position: absolute;
+  left: 478px;
+  top: 370px;
+  width: 290px;
+}
+.cert.cert-b .c-locbox {
+  position: absolute;
+  left: 792px;
+  top: 370px;
+  width: 268px;
+}
+.cert.cert-b .big {
+  font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
+  font-size: 35px;
+  color: #7d1010;
+  line-height: 1.06;
+  text-transform: uppercase;
+  margin-top: 3px;
+  word-break: break-word;
+  font-weight: 400;
+}
+.cert.cert-b .committing {
+  position: absolute;
+  left: 478px;
+  top: 514px;
+  font-size: 20px;
+}
+.cert.cert-b .c-viol {
+  position: absolute;
+  left: 478px;
+  top: 548px;
+  width: 582px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, 26px);
+  column-gap: 8px;
+  font-size: 15.5px;
+}
+.cert.cert-b .opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.cert.cert-b .opt i {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #1a1209;
+  display: block;
+  font-style: normal;
+}
+.cert.cert-b .opt.sel i {
+  background: #1a1209;
+}
+.cert.cert-b .rule {
+  position: absolute;
+  left: 62px;
+  right: 63px;
+  top: 659px;
+  height: 2px;
+  background: #1a1209;
+}
+.cert.cert-b .bl {
+  position: absolute;
+  left: 62px;
+  top: 669px;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.cert.cert-b .bc {
+  position: absolute;
+  left: 0;
+  width: 1123px;
+  top: 681px;
+  text-align: center;
+  font-style: italic;
+  font-size: 15px;
+  color: #7d1010;
+}
+.cert.cert-b .credit {
+  position: absolute;
+  left: 0;
+  width: 1123px;
+  top: 699px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #1a1209;
+}
+.cert.cert-b .br {
+  position: absolute;
+  right: 63px;
+  top: 682px;
+  width: 260px;
+  text-align: right;
+  font-size: 12.5px;
+  border-top: 1px solid #9a8f80;
+  padding-top: 3px;
+}
+.cert.cert-b .disc {
+  position: absolute;
+  left: 62px;
+  right: 62px;
+  top: 718px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  text-align: center;
+  font-size: 17px;
+  line-height: 20px;
+  background: #1a1209;
+  color: #faf3e0;
+}
+.cert.cert-b .stamp {
+  position: absolute;
+  right: 58px;
+  top: 46px;
+  transform: rotate(8deg);
+  border: 2.5px solid #9b1c1c;
+  color: #9b1c1c;
+  padding: 5px 10px;
+  font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
+  font-size: 13px;
+  letter-spacing: 1.4px;
+  line-height: 1.3;
+  text-align: center;
+  background: rgba(250, 243, 224, 0.9);
+  font-weight: 400;
+}
+
+/* Design B: the disclaimer bar spans the inside of the border, not the full width. */
+.cert.cert-b .disc {
+  width: auto;
+  letter-spacing: normal;
+}
+/* Design B: the stamp moves down so the two partner logos can sit in the top right corner. */
+.cert.cert-b .stamp {
+  top: 140px;
+}
+/* Design B: partner logos, small and quiet, top right. */
+.cert.cert-b .c-logos-right {
+  position: absolute;
+  right: 58px;
+  top: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cert.cert-b .c-logos-right img {
+  height: 44px;
+  width: auto;
+  max-width: 70px;
+  object-fit: contain;
+  opacity: 0.9;
 }

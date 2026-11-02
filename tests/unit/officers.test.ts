@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  createOfficer,
-  resetOfficerPassword,
   setOfficerActive,
   type Actor,
   type OfficerStore,
@@ -93,61 +91,17 @@ beforeEach(() => {
   store.profiles.set('admin-1', { id: 'admin-1', role: 'admin', officerCode: null, active: true });
 });
 
-const input = { email: 'ravi@example.org', displayName: 'Ravi Kumar', role: 'officer' as const };
-
-describe('createOfficer', () => {
-  it('creates the login and the profile, audits, and returns the one-time password', async () => {
-    const r = await createOfficer(deps(), admin, input);
-    expect(r.officerCode).toBe('JP-0002');
-    expect(r.tempPassword).toBe('Temp-Pass-123');
-    expect(store.authUsers.get(r.id)?.password).toBe('Temp-Pass-123');
-    expect(audit.events).toEqual([
-      {
-        action: 'officer_created',
-        actorId: 'admin-1',
-        actorCode: null,
-        meta: { target_code: 'JP-0002', role: 'officer' },
-      },
-    ]);
-  });
-
-  it('keeps the email and the password out of the audit record', async () => {
-    await createOfficer(deps(), admin, input);
-    const text = JSON.stringify(audit.events);
-    expect(text).not.toContain('ravi@example.org');
-    expect(text).not.toContain('Temp-Pass-123');
-  });
-
-  it('removes the login again if the profile cannot be saved', async () => {
-    store.failInsertProfile = true;
-    await expect(createOfficer(deps(), admin, input)).rejects.toThrow();
-    expect(store.authUsers.size).toBe(0);
-    expect(store.calls).toContain('deleteAuthUser');
-    expect(audit.events).toHaveLength(0);
-  });
-
-  it('reports a duplicate email and writes nothing else', async () => {
-    await createOfficer(deps(), admin, input);
-    audit.events = [];
-    await expect(createOfficer(deps(), admin, input)).rejects.toMatchObject({
-      code: 'email_taken',
-      status: 409,
-    });
-    expect(audit.events).toHaveLength(0);
-  });
-
-  it.each(['officer', 'supervisor'] as const)('refuses a %s as the caller', async (role) => {
-    await expect(
-      createOfficer(deps(), { id: 'x', role, officerCode: 'JP-0009' }, input),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(store.calls).toEqual([]);
-  });
-});
-
 describe('setOfficerActive', () => {
   let officerId: string;
   beforeEach(async () => {
-    officerId = (await createOfficer(deps(), admin, input)).id;
+    officerId = 'u1';
+    store.profiles.set(officerId, {
+      id: officerId,
+      role: 'officer',
+      officerCode: 'JP-0002',
+      active: true,
+    });
+    store.authUsers.set(officerId, { email: 'team@teams.invalid', password: 'x', banned: false });
     store.calls = [];
     audit.events = [];
   });
@@ -212,36 +166,5 @@ describe('setOfficerActive', () => {
         false,
       ),
     ).rejects.toMatchObject({ status: 403 });
-  });
-});
-
-describe('resetOfficerPassword', () => {
-  let officerId: string;
-  beforeEach(async () => {
-    officerId = (await createOfficer(deps(), admin, input)).id;
-    store.mustChange.set(officerId, false);
-    store.calls = [];
-    audit.events = [];
-  });
-
-  it('forces a change first, then sets the password and ends old sessions', async () => {
-    const r = await resetOfficerPassword(deps(), admin, officerId);
-    expect(r.tempPassword).toBe('Temp-Pass-123');
-    expect(store.calls).toEqual(['setMustChangePassword', 'setPassword', 'revokeSessions']);
-    expect(store.mustChange.get(officerId)).toBe(true);
-    expect(audit.events[0]).toMatchObject({ action: 'officer_password_reset' });
-    expect(JSON.stringify(audit.events)).not.toContain('Temp-Pass-123');
-  });
-
-  it('never leaves a new password without the must-change flag', async () => {
-    store.failOn = 'setMustChangePassword';
-    await expect(resetOfficerPassword(deps(), admin, officerId)).rejects.toThrow();
-    expect(store.calls).not.toContain('setPassword');
-  });
-
-  it('cannot reset your own or an admin password', async () => {
-    await expect(resetOfficerPassword(deps(), admin, 'admin-1')).rejects.toMatchObject({
-      status: 403,
-    });
   });
 });

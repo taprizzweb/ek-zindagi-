@@ -67,6 +67,17 @@ export async function POST(request: Request) {
       throw new AppError('invalid_credentials', 401); // same answer as a wrong password
     }
 
+    // Officers have no password login: they open their station's team link. Only admin (and supervisor) screens use a password.
+    if (profile.role === 'officer') {
+      await supabase.auth.signOut();
+      await audit.record({
+        action: 'login_denied',
+        actorId: data.user.id,
+        meta: { reason: 'officer_link_only' },
+      });
+      throw new AppError('invalid_credentials', 401); // same answer as a wrong password
+    }
+
     await audit.record({ action: 'login', actorId: data.user.id, actorCode: profile.officer_code });
     (await cookies()).set(ACTIVITY_COOKIE, String(Date.now()), activityCookieOptions());
     return json({
