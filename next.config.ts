@@ -18,7 +18,7 @@ const securityHeaders = [
 const CERTIFICATE_FILES = [
   './public/fonts/**/*',
   './src/components/certificate/certificate.css',
-  './assets/branding/jaipur-police.png',
+  './assets/branding/*.png',
   './node_modules/@sparticuz/chromium/bin/*',
   './node_modules/react/**',
   './node_modules/react-dom/**',
@@ -36,6 +36,8 @@ const config: NextConfig = {
     '/api/entries/[id]/certificate': CERTIFICATE_FILES,
     '/api/entries/[id]/certificate/image': CERTIFICATE_FILES,
     '/api/entries/[id]/certificate/pdf': CERTIFICATE_FILES,
+    // The entry form's live preview reads the same logo files.
+    '/new': ['./assets/branding/*.png'],
   },
   reactStrictMode: true,
   async headers() {
