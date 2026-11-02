@@ -21,6 +21,15 @@ import {
   sample,
 } from './helpers';
 
+/** Moved on purpose after the reference image was approved: the stamp (now under the police logo), the subtitle line and the partner logos. */
+const MOVED = [
+  { x: 40, y: 150, w: 220, h: 100 }, // stamp, new place
+  { x: 930, y: 36, w: 150, h: 70 }, // stamp, old place
+  { x: 80, y: 172, w: 980, h: 34 }, // subtitle, old place
+  { x: 80, y: 228, w: 980, h: 34 }, // subtitle, new place
+  { x: 850, y: 36, w: 230, h: 110 }, // partner logos
+];
+
 const MAX_BYTES = 1.5 * 1024 * 1024;
 const MAX_MS = 5000;
 const UPDATE = process.env.UPDATE_SNAPSHOTS === '1';
@@ -186,7 +195,7 @@ describe('stamp, watermark and disclaimer: in the PDF, on every render', () => {
 
   it('are painted on the page: red stamp top right, watermark across the middle, disclaimer along the bottom', async () => {
     const img = rasterize(await createCertificatePdf(sample));
-    expect(redInk(img, 940, 40, 1075, 100)).toBeGreaterThan(150); // stamp
+    expect(redInk(img, 50, 160, 235, 245)).toBeGreaterThan(150); // stamp, under the police logo
     let faint = 0; // watermark: faint red-tinted pixels over the parchment, in the gap between photo and text
     for (let y = 380; y < 480; y++)
       for (let x = 400; x < 470; x++) {
@@ -260,13 +269,13 @@ describe('long text fits (auto-shrink)', () => {
     const ref = readPng('reference/certificate_v2.png');
     const d = blockDifference(ours, ref, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE, { x: 470, y: 400, w: 600, h: 120 }],
+      ignore: [...MOVED, FRAME_AREA, PLACE_LABEL, PARTNER_LINE, { x: 470, y: 400, w: 600, h: 120 }],
     });
     // 0.026: the ignored footer strip leaves fewer blocks to divide by; the number of differing blocks is unchanged.
     expect(d.ratio).toBeLessThan(0.026);
     const dateAndPlace = blockDifference(ours, ref, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, PARTNER_LINE],
+      ignore: [...MOVED, FRAME_AREA, PLACE_LABEL, PARTNER_LINE],
     });
     expect(dateAndPlace.ratio).toBeLessThan(0.026);
   });
@@ -361,6 +370,7 @@ describe('PNG export (Download image)', () => {
     const d = blockDifference(PNG.sync.read(half), readPng('reference/certificate_v2.png'), {
       block: 8,
       ignore: [
+        ...MOVED,
         FRAME_AREA,
         PLACE_LABEL,
         PARTNER_LINE,
@@ -384,6 +394,7 @@ describe('visual regression against the approved design', () => {
     const d = blockDifference(ours, REF, {
       block: 8,
       ignore: [
+        ...MOVED,
         FRAME_AREA,
         PLACE_LABEL,
         PARTNER_LINE,
@@ -399,7 +410,7 @@ describe('visual regression against the approved design', () => {
     const ours = rasterize(await createCertificatePdf(approved, POLICE));
     const d = blockDifference(ours, REF_LOGO, {
       block: 8,
-      ignore: [FRAME_AREA, PLACE_LABEL, LOGO_AREA, PARTNER_LINE],
+      ignore: [...MOVED, FRAME_AREA, PLACE_LABEL, LOGO_AREA, PARTNER_LINE],
     });
     process.stderr.write(`v2 + logo: ${d.badBlocks}/${d.totalBlocks} 8px blocks differ\n`);
     expect(d.ratio).toBeLessThan(0.025);

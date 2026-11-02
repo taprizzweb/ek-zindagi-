@@ -190,7 +190,7 @@ describe('stamp, watermark and disclaimer: in the PDF, on every render', () => {
 
   it('are painted on the page: red stamp top right, watermark across the middle, disclaimer in a dark bar', async () => {
     const img = rasterize(await createCertificatePdf(sample));
-    expect(redInk(img, 930, 130, 1085, 200)).toBeGreaterThan(150); // stamp (moved down for the logos)
+    expect(redInk(img, 50, 160, 235, 245)).toBeGreaterThan(150); // stamp, under the police logo
     let faint = 0; // watermark: faint red-tinted pixels over the parchment, upper right of the diagonal
     for (let y = 200; y < 340; y++)
       for (let x = 650; x < 1050; x++) {

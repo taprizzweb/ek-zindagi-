@@ -64,16 +64,18 @@ export default function CertificateB({ view }: { view: CertificateView }) {
       {hasLogos ? (
         <div className="c-logos-right">
           {view.taprizzLogoSrc ? <img src={view.taprizzLogoSrc} alt="" /> : null}
+          {view.taprizzLogoSrc && view.arthjamLogoSrc ? <span className="c-logos-x">×</span> : null}
           {view.arthjamLogoSrc ? <img src={view.arthjamLogoSrc} alt="" /> : null}
         </div>
       ) : null}
       {view.taprizzLogoSrc || view.arthjamLogoSrc ? (
         <div className="c-logos-right">
           {view.taprizzLogoSrc ? <img src={view.taprizzLogoSrc} alt="" /> : null}
+          {view.taprizzLogoSrc && view.arthjamLogoSrc ? <span className="c-logos-x">×</span> : null}
           {view.arthjamLogoSrc ? <img src={view.arthjamLogoSrc} alt="" /> : null}
         </div>
       ) : null}
-      <div className="c-head" data-fit="830,150,95,60">
+      <div className="c-head" data-fit="640,150,95,60">
         {T.headline}
       </div>
       <div className="stamp">

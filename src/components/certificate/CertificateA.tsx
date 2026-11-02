@@ -40,6 +40,7 @@ export default function CertificateA({ view }: { view: CertificateView }) {
       {hasLogos ? (
         <div className="c-logos-right">
           {view.taprizzLogoSrc ? <img src={view.taprizzLogoSrc} alt="" /> : null}
+          {view.taprizzLogoSrc && view.arthjamLogoSrc ? <span className="c-logos-x">×</span> : null}
           {view.arthjamLogoSrc ? <img src={view.arthjamLogoSrc} alt="" /> : null}
         </div>
       ) : null}

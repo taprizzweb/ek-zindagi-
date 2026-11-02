@@ -92,7 +92,7 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 180px;
+  top: 238px;
   text-align: center;
   font-size: 14.5px;
   letter-spacing: 4.2px;
@@ -260,15 +260,15 @@
 }
 .cert .stamp {
   position: absolute;
-  right: 58px;
-  top: 46px;
-  transform: rotate(8deg);
-  border: 2.5px solid #9b1c1c;
+  left: 52px;
+  top: 166px;
+  transform: rotate(-6deg);
+  border: 3px solid #9b1c1c;
   color: #9b1c1c;
-  padding: 5px 10px;
+  padding: 6px 13px;
   font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
-  font-size: 13px;
-  letter-spacing: 1.4px;
+  font-size: 17px;
+  letter-spacing: 1.6px;
   line-height: 1.3;
   text-align: center;
   background: rgba(250, 243, 224, 0.9);
@@ -335,7 +335,7 @@
 }
 .cert.cert-b .c-head {
   position: absolute;
-  left: 50%;
+  left: calc(50% - 30px);
   transform: translateX(-50%);
   width: auto;
   top: 40px;
@@ -525,15 +525,15 @@
 }
 .cert.cert-b .stamp {
   position: absolute;
-  right: 58px;
-  top: 46px;
-  transform: rotate(8deg);
-  border: 2.5px solid #9b1c1c;
+  left: 52px;
+  top: 166px;
+  transform: rotate(-6deg);
+  border: 3px solid #9b1c1c;
   color: #9b1c1c;
-  padding: 5px 10px;
+  padding: 6px 13px;
   font-family: 'Anton', 'EKZ Deva Bold', Impact, sans-serif;
-  font-size: 13px;
-  letter-spacing: 1.4px;
+  font-size: 17px;
+  letter-spacing: 1.6px;
   line-height: 1.3;
   text-align: center;
   background: rgba(250, 243, 224, 0.9);
@@ -546,25 +546,24 @@
   letter-spacing: normal;
 }
 /* Design B: the stamp moves down so the two partner logos can sit in the top right corner. */
-.cert.cert-b .stamp {
-  top: 140px;
-}
-/* Partner logos (both designs), small and quiet, top right. With them the stamp moves down. */
-.cert.has-logos .stamp {
-  top: 98px;
-}
+/* Partner logos (both designs): Taprizz x Arth, top right. */
 .cert .c-logos-right {
   position: absolute;
   right: 58px;
   top: 44px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+}
+/* The x between the two logos. */
+.cert .c-logos-x {
+  font-size: 24px;
+  line-height: 1;
+  color: #5a4a3a;
 }
 .cert .c-logos-right img {
-  height: 44px;
+  height: 62px;
   width: auto;
-  max-width: 70px;
+  max-width: 110px;
   object-fit: contain;
-  opacity: 0.9;
 }
