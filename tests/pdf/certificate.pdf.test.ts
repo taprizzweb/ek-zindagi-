@@ -32,7 +32,12 @@ const LOGO_AREA = { x: 40, y: 36, w: 140, h: 130 };
 /** The partner line and the disclaimer under it moved down a few px: the footer strip is not compared. */
 const PARTNER_LINE = { x: 0, y: 724, w: 1123, h: 50 };
 const PLACE_LABEL = { x: 780, y: 398, w: 280, h: 28 };
-const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
+/** Police branding as configured, without the partner logos (those have their own tests). */
+const POLICE: Branding = {
+  ...brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' }),
+  taprizzLogoDataUri: null,
+  arthjamLogoDataUri: null,
+};
 
 /** The letters of a string, upper-cased: robust against how the PDF text extractor spaces rotated text. */
 const letters = (s: string) => s.replace(/[^\p{L}]/gu, '').toUpperCase();

@@ -160,8 +160,8 @@ export default function NewEntryForm({
       ngoLogoSrc: branding.ngoLogoSrc,
       partnerCredit: branding.partnerCredit,
       design: branding.design,
-      taprizzLogoSrc: branding.design === 'b' ? branding.taprizzLogoSrc : null,
-      arthjamLogoSrc: branding.design === 'b' ? branding.arthjamLogoSrc : null,
+      taprizzLogoSrc: branding.taprizzLogoSrc,
+      arthjamLogoSrc: branding.arthjamLogoSrc,
     };
   }, [name, location, violation, photo, created, now, branding]);
 

@@ -549,8 +549,11 @@
 .cert.cert-b .stamp {
   top: 140px;
 }
-/* Design B: partner logos, small and quiet, top right. */
-.cert.cert-b .c-logos-right {
+/* Partner logos (both designs), small and quiet, top right. With them the stamp moves down. */
+.cert.has-logos .stamp {
+  top: 98px;
+}
+.cert .c-logos-right {
   position: absolute;
   right: 58px;
   top: 44px;
@@ -558,7 +561,7 @@
   align-items: center;
   gap: 8px;
 }
-.cert.cert-b .c-logos-right img {
+.cert .c-logos-right img {
   height: 44px;
   width: auto;
   max-width: 70px;

@@ -11,7 +11,7 @@ const MIME: Record<string, string> = {
 const MAX_LOGO_BYTES = 300_000;
 /** Used for the police logo when branding is on and POLICE_LOGO_PATH is not set. */
 export const DEFAULT_POLICE_LOGO_PATH = 'assets/branding/jaipur-police.png';
-/** Design B partner logos: used when the files exist, left out when they do not. */
+/** Partner logos (both designs): used when the files exist, left out when they do not. */
 export const DEFAULT_TAPRIZZ_LOGO_PATH = 'assets/branding/taprizz.png';
 export const DEFAULT_ARTHJAM_LOGO_PATH = 'assets/branding/arthjam.png';
 
@@ -62,10 +62,8 @@ export function brandingFromEnv(
   const design = env.CERTIFICATE_DESIGN?.trim().toLowerCase() === 'b' ? 'b' : 'a';
   return {
     design,
-    taprizzLogoDataUri:
-      design === 'b' ? loadLogo(env.TAPRIZZ_LOGO_PATH || DEFAULT_TAPRIZZ_LOGO_PATH, files) : null,
-    arthjamLogoDataUri:
-      design === 'b' ? loadLogo(env.ARTHJAM_LOGO_PATH || DEFAULT_ARTHJAM_LOGO_PATH, files) : null,
+    taprizzLogoDataUri: loadLogo(env.TAPRIZZ_LOGO_PATH || DEFAULT_TAPRIZZ_LOGO_PATH, files),
+    arthjamLogoDataUri: loadLogo(env.ARTHJAM_LOGO_PATH || DEFAULT_ARTHJAM_LOGO_PATH, files),
     showPolice,
     ngoLogoDataUri: loadLogo(env.NGO_LOGO_PATH, files),
     policeLogoDataUri: showPolice

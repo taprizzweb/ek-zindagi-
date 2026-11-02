@@ -43,8 +43,14 @@ const CRACKS = [
  */
 export default function CertificateB({ view }: { view: CertificateView }) {
   const policeLogo = view.showPolice && view.policeLogoSrc ? view.policeLogoSrc : null;
+  const hasLogos = Boolean(view.taprizzLogoSrc || view.arthjamLogoSrc);
+
   return (
-    <div className="cert cert-b" id="cert" data-testid="certificate">
+    <div
+      className={`cert cert-b${hasLogos ? ' has-logos' : ''}`}
+      id="cert"
+      data-testid="certificate"
+    >
       <div className="bd1" />
       <div className="bd2" />
       {policeLogo ? <img className="c-logo c-logo-police" src={policeLogo} alt="" /> : null}
@@ -55,7 +61,7 @@ export default function CertificateB({ view }: { view: CertificateView }) {
           alt=""
         />
       ) : null}
-      {view.taprizzLogoSrc || view.arthjamLogoSrc ? (
+      {hasLogos ? (
         <div className="c-logos-right">
           {view.taprizzLogoSrc ? <img src={view.taprizzLogoSrc} alt="" /> : null}
           {view.arthjamLogoSrc ? <img src={view.arthjamLogoSrc} alt="" /> : null}

@@ -31,7 +31,12 @@ const buildCertificateHtml = (d: CertificateData, b?: Branding) => buildHtml(d, 
 const MAX_BYTES = 1.5 * 1024 * 1024;
 const MAX_MS = 5000;
 const UPDATE = process.env.UPDATE_SNAPSHOTS === '1';
-const POLICE: Branding = brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' });
+/** Police branding as configured, without the partner logos (those have their own tests). */
+const POLICE: Branding = {
+  ...brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' }),
+  taprizzLogoDataUri: null,
+  arthjamLogoDataUri: null,
+};
 
 /** The letters of a string, upper-cased: robust against how the PDF text extractor spaces rotated text. */
 const letters = (s: string) => s.replace(/[^\p{L}]/gu, '').toUpperCase();
