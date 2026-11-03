@@ -21,8 +21,10 @@ import {
   sample,
 } from './helpers';
 
-/** Changed on purpose after the reference image was approved: the headline (larger), the stamp (now under the police logo) and the subtitle line. */
+/** Changed on purpose after the reference image was approved: the headline (larger), the tagline (larger), the stamp (now under the police logo) and the subtitle line. */
 const MOVED = [
+  { x: 250, y: 696, w: 620, h: 36 }, // the tagline, now bigger and bold
+
   { x: 150, y: 30, w: 950, h: 130 }, // the headline, now much larger
 
   { x: 40, y: 150, w: 220, h: 100 }, // stamp, new place

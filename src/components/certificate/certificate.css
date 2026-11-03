@@ -221,11 +221,13 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 715px;
+  top: 701px;
   text-align: center;
-  font-style: italic;
-  font-size: 15px;
-  color: #7d1010;
+  font-style: normal; /* a real Bold face: a faux-bold italic is embedded as outlines and loses its spaces in the PDF text */
+  font-weight: 700;
+  font-size: 23px;
+  line-height: 28px;
+  color: #8a1010;
 }
 .cert .credit {
   position: absolute;
@@ -480,11 +482,13 @@
   position: absolute;
   left: 0;
   width: 1123px;
-  top: 681px;
+  top: 667px;
   text-align: center;
-  font-style: italic;
-  font-size: 15px;
-  color: #7d1010;
+  font-style: normal; /* a real Bold face: a faux-bold italic is embedded as outlines and loses its spaces in the PDF text */
+  font-weight: 700;
+  font-size: 23px;
+  line-height: 28px;
+  color: #8a1010;
 }
 .cert.cert-b .credit {
   position: absolute;
