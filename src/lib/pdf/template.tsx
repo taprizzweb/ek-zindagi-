@@ -47,9 +47,6 @@ export interface Branding {
   partnerCreditText?: string | null;
   /** 'a' (default) or 'b'; see CERTIFICATE_DESIGN. */
   design?: 'a' | 'b';
-  /** The two partner logos, top right (both designs); left out when a file is missing. */
-  taprizzLogoDataUri?: string | null;
-  arthjamLogoDataUri?: string | null;
 }
 
 export const NO_BRANDING: Branding = { showPolice: false };
@@ -72,8 +69,6 @@ export function toCertificateView(
     ngoLogoSrc: branding.ngoLogoDataUri ?? null,
     partnerCredit: branding.partnerCreditText ?? null,
     design: branding.design === 'b' ? 'b' : 'a',
-    taprizzLogoSrc: branding.taprizzLogoDataUri ?? null,
-    arthjamLogoSrc: branding.arthjamLogoDataUri ?? null,
   };
 }
 

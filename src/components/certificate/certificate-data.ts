@@ -17,9 +17,6 @@ export interface CertificateView {
   partnerCredit: string | null;
   /** Which certificate design: 'a' (default) or 'b'. */
   design: 'a' | 'b';
-  /** Design B only: the two partner logos in the top right corner. */
-  taprizzLogoSrc: string | null;
-  arthjamLogoSrc: string | null;
 }
 
 /** Date and time in Indian Standard Time, e.g. { dateText: "30 October 2026", timeText: "04:12 PM" }. */

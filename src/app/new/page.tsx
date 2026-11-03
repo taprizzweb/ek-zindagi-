@@ -30,8 +30,6 @@ export default async function NewEntryPage() {
           ngoLogoSrc: branding.ngoLogoDataUri ?? null,
           partnerCredit: branding.partnerCreditText ?? null,
           design: branding.design === 'b' ? 'b' : 'a',
-          taprizzLogoSrc: branding.taprizzLogoDataUri ?? null,
-          arthjamLogoSrc: branding.arthjamLogoDataUri ?? null,
         }}
         baseUrl={env.APP_BASE_URL}
         deliveryMode={env.DELIVERY_MODE}

@@ -106,20 +106,6 @@ describe('hard rules: stamp, watermark and disclaimer are always in the certific
   });
 });
 
-describe('design B: partner logos', () => {
-  it('prints Taprizz and Arthjam logos top right when given, and nothing when not', () => {
-    const html = buildCertificateHtml(base, {
-      showPolice: false,
-      taprizzLogoDataUri: 'data:image/png;base64,TAPRIZZLOGO',
-      arthjamLogoDataUri: 'data:image/png;base64,ARTHJAMLOGO',
-    });
-    expect(markup(html)).toContain('<div class="c-logos-right">');
-    expect(html).toContain('TAPRIZZLOGO');
-    expect(html).toContain('ARTHJAMLOGO');
-    expect(markup(buildCertificateHtml(base))).not.toContain('c-logos-right');
-  });
-});
-
 describe('the checklist', () => {
   it('has the seven violations once each, in the approved two columns', () => {
     expect(CERTIFICATE_CHECKLIST.map((c) => c.key).sort()).toEqual([...VIOLATION_KEYS].sort());

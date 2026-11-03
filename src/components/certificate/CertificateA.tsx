@@ -18,10 +18,8 @@ export default function CertificateA({ view }: { view: CertificateView }) {
   const policeLogo = view.showPolice && view.policeLogoSrc ? view.policeLogoSrc : null;
   const subtitleTail = view.showPolice ? T.subtitlePolice : T.subtitleCampaign;
 
-  const hasLogos = Boolean(view.taprizzLogoSrc || view.arthjamLogoSrc);
-
   return (
-    <div className={`cert${hasLogos ? ' has-logos' : ''}`} id="cert" data-testid="certificate">
+    <div className="cert" id="cert" data-testid="certificate">
       <div className="bd1" />
       <div className="bd2" />
       {policeLogo ? <img className="c-logo c-logo-police" src={policeLogo} alt="" /> : null}
@@ -37,14 +35,7 @@ export default function CertificateA({ view }: { view: CertificateView }) {
         <br />
         {T.watermark[1]}
       </div>
-      {hasLogos ? (
-        <div className="c-logos-right">
-          {view.taprizzLogoSrc ? <img src={view.taprizzLogoSrc} alt="" /> : null}
-          {view.taprizzLogoSrc && view.arthjamLogoSrc ? <span className="c-logos-x">×</span> : null}
-          {view.arthjamLogoSrc ? <img src={view.arthjamLogoSrc} alt="" /> : null}
-        </div>
-      ) : null}
-      <div className="c-head" data-fit="830,150,95,60">
+      <div className="c-head" data-fit="800,150,150,60">
         {T.headline}
       </div>
       <div className="stamp">

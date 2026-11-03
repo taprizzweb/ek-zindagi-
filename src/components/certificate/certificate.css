@@ -335,7 +335,7 @@
 }
 .cert.cert-b .c-head {
   position: absolute;
-  left: calc(50% - 30px);
+  left: 50%;
   transform: translateX(-50%);
   width: auto;
   top: 40px;
@@ -544,26 +544,4 @@
 .cert.cert-b .disc {
   width: auto;
   letter-spacing: normal;
-}
-/* Design B: the stamp moves down so the two partner logos can sit in the top right corner. */
-/* Partner logos (both designs): Taprizz x Arth, top right. */
-.cert .c-logos-right {
-  position: absolute;
-  right: 58px;
-  top: 44px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-/* The x between the two logos. */
-.cert .c-logos-x {
-  font-size: 24px;
-  line-height: 1;
-  color: #5a4a3a;
-}
-.cert .c-logos-right img {
-  height: 62px;
-  width: auto;
-  max-width: 110px;
-  object-fit: contain;
 }

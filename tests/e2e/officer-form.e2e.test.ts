@@ -211,6 +211,19 @@ describe('officer form: live preview', () => {
     await expect(cert(page).locator('.wm')).toContainText('NOT A LEGAL DOCUMENT');
   });
 
+  it('the headline is the biggest thing on the certificate, and the partner logos are gone', async () => {
+    const page = await phone();
+    await openForm(page);
+    const sizes = await cert(page).evaluate((root) => {
+      const px = (sel: string) =>
+        Number.parseFloat(getComputedStyle(root.querySelector(sel)!).fontSize);
+      return { head: px('.c-head'), name: px('.c-name'), big: px('.c-datebox .big') };
+    });
+    expect(sizes.head).toBeGreaterThanOrEqual(110);
+    expect(sizes.head).toBeGreaterThan(sizes.name * 2);
+    await expect(cert(page).locator('.c-logos-right')).toHaveCount(0);
+  });
+
   it('updates as the officer types and chooses, without pressing anything', async () => {
     const page = await phone();
     await openForm(page);

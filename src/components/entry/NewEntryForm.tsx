@@ -26,8 +26,6 @@ export interface ClientBranding {
   ngoLogoSrc: string | null;
   partnerCredit: string | null;
   design: 'a' | 'b';
-  taprizzLogoSrc: string | null;
-  arthjamLogoSrc: string | null;
 }
 
 const FIELD_ERRORS: Record<FieldKey, Bilingual> = {
@@ -160,8 +158,6 @@ export default function NewEntryForm({
       ngoLogoSrc: branding.ngoLogoSrc,
       partnerCredit: branding.partnerCredit,
       design: branding.design,
-      taprizzLogoSrc: branding.taprizzLogoSrc,
-      arthjamLogoSrc: branding.arthjamLogoSrc,
     };
   }, [name, location, violation, photo, created, now, branding]);
 

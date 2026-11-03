@@ -18,13 +18,6 @@ mkdirSync(join(dir, 'sub'));
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-/** The two partner logos are always read (when present); the tests below are about the other files. */
-const PARTNER = /(taprizz|arthjam)\.png$/;
-const opened = (fn: unknown): string[] =>
-  (fn as { mock: { calls: unknown[][] } }).mock.calls
-    .map((c) => String(c[0]))
-    .filter((p) => !PARTNER.test(p));
-
 describe('brandingFromEnv', () => {
   it('shows nothing by default', () => {
     expect(brandingFromEnv({})).toEqual({
@@ -33,39 +26,14 @@ describe('brandingFromEnv', () => {
       policeLogoDataUri: null,
       partnerCreditText: null,
       design: 'a',
-      taprizzLogoDataUri: expect.stringMatching(/^data:image\/png;base64,/), // shipped in assets/branding
-      arthjamLogoDataUri: expect.stringMatching(/^data:image\/png;base64,/),
     });
   });
 
-  it('design B only with the exact letter "b"; the partner logos load for either design, only if the files exist', () => {
+  it('design B only with the exact letter "b"', () => {
     for (const v of [undefined, '', 'a', 'A', 'bb', 'c', 'true'])
       expect(brandingFromEnv({ CERTIFICATE_DESIGN: v }).design, String(v)).toBe('a');
     expect(brandingFromEnv({ CERTIFICATE_DESIGN: 'b' }).design).toBe('b');
     expect(brandingFromEnv({ CERTIFICATE_DESIGN: ' B ' }).design).toBe('b');
-    const read: string[] = [];
-    const files = {
-      size: () => 10,
-      read: (p: string) => {
-        read.push(p);
-        return Buffer.from('x');
-      },
-    };
-    for (const design of [undefined, 'b']) {
-      const b = brandingFromEnv({ CERTIFICATE_DESIGN: design }, files);
-      expect(b.taprizzLogoDataUri).toMatch(/^data:image\/png;base64,/);
-      expect(b.arthjamLogoDataUri).toMatch(/^data:image\/png;base64,/);
-    }
-    expect(read.some((p) => p.endsWith('taprizz.png'))).toBe(true);
-    const missing = {
-      size: () => {
-        throw new Error('ENOENT');
-      },
-      read: () => Buffer.alloc(0),
-    };
-    const none = brandingFromEnv({ CERTIFICATE_DESIGN: 'b' }, missing);
-    expect(none.taprizzLogoDataUri).toBeNull(); // no file yet: just left out
-    expect(none.arthjamLogoDataUri).toBeNull();
   });
 
   it('only the exact value "true" switches police branding on', () => {
@@ -88,20 +56,19 @@ describe('brandingFromEnv', () => {
       const b = brandingFromEnv(env, files);
       expect(b.policeLogoDataUri).toBeNull();
     }
-    expect(opened(files.size)).toEqual([]);
-    expect(opened(files.read)).toEqual([]);
+    expect(files.size).not.toHaveBeenCalled();
+    expect(files.read).not.toHaveBeenCalled();
   });
 
   it('with the flag on, uses assets/branding/jaipur-police.png unless another path is set', () => {
-    const seen: string[] = [];
-    const files: FileAccess = { size: () => 10, read: (p) => (seen.push(p), PNG) };
+    const opened: string[] = [];
+    const files: FileAccess = { size: () => 10, read: (p) => (opened.push(p), PNG) };
     brandingFromEnv({ SHOW_POLICE_BRANDING: 'true' }, files);
-    const others = () => seen.filter((p) => !PARTNER.test(p));
-    expect(others()).toHaveLength(1);
-    expect(others()[0]!.endsWith('assets/branding/jaipur-police.png')).toBe(true);
-    seen.length = 0;
+    expect(opened).toHaveLength(1);
+    expect(opened[0]!.endsWith('assets/branding/jaipur-police.png')).toBe(true);
+    opened.length = 0;
     brandingFromEnv({ SHOW_POLICE_BRANDING: 'true', POLICE_LOGO_PATH: rel('police.jpg') }, files);
-    expect(others()[0]!.endsWith('police.jpg')).toBe(true);
+    expect(opened[0]!.endsWith('police.jpg')).toBe(true);
   });
 
   it('the real default logo exists and loads when the flag is on', () => {
@@ -112,7 +79,7 @@ describe('brandingFromEnv', () => {
   it('opens no NGO logo unless NGO_LOGO_PATH is set', () => {
     const files: FileAccess = { size: vi.fn(() => 10), read: vi.fn(() => PNG) };
     brandingFromEnv({ SHOW_POLICE_BRANDING: 'false' }, files);
-    expect(opened(files.read)).toEqual([]);
+    expect(files.read).not.toHaveBeenCalled();
     expect(brandingFromEnv({ NGO_LOGO_PATH: rel('ngo.png') }).ngoLogoDataUri).toBe(
       `data:image/png;base64,${PNG.toString('base64')}`,
     );
